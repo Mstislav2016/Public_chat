@@ -40,8 +40,15 @@
         const nkIn = document.getElementById('nk');
         const keyIn = document.getElementById('key');
 
-        const RENDER_URL = 'https://public-chat-4p8s.onrender.com/api'; 
-        const API = window.location.protocol === 'file:' ? RENDER_URL : window.location.origin + '/api';
+// В секции настроек API
+const RENDER_URL = 'https://твой-сайт.onrender.com/api'; // Это для облака
+
+// Локально теперь порты разные!
+// Загружаешь страницу по http://localhost:8888
+// А данные он будет брать с порта 9999
+const API = window.location.protocol === 'file:' 
+    ? 'http://localhost:9999/api' 
+    : window.location.origin.replace(':8888', ':9999') + '/api';
 
         let cacheLines = [];
         const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()_+{}|<>?";
@@ -143,4 +150,5 @@
     </script>
 </body>
 </html>
+
 
