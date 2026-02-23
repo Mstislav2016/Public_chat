@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>胡耶塔 // ULTIMATE_STABLE</title>
+    <style>
+        :root { --n: #00ff41; --b: #050505; }
+        body { background: var(--b); color: var(--n); font-family: 'Consolas', monospace; display: flex; flex-direction: column; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
+        header { width: 100%; text-align: center; border-bottom: 1px solid var(--n); padding: 10px; background: rgba(0,255,65,0.05); z-index: 5; }
+        #chat { width: 95%; max-width: 900px; flex-grow: 1; margin: 15px 0; padding: 15px; border: 1px solid var(--n); overflow-y: auto; background: rgba(0,20,0,0.2); white-space: pre-wrap; font-size: 0.9rem; z-index: 5; }
+        .controls { width: 95%; max-width: 900px; display: flex; gap: 10px; padding-bottom: 20px; z-index: 5; }
+        input { background: rgba(0,40,0,0.3); border: 1px solid var(--n); color: var(--n); padding: 10px; outline: none; font-family: inherit; }
+        #nk { width: 100px; font-weight: bold; }
+        #ms { flex-grow: 1; }
+        button { background: var(--n); color: #000; border: none; padding: 0 20px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #fff; box-shadow: 0 0 10px #fff; }
+        .status { width: 95%; max-width: 900px; font-size: 0.7rem; display: flex; justify-content: space-between; margin-bottom: 5px; }
+        
+        /* Эффект помех */
+        body::after {
+            content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 1px, transparent 1px, transparent 2px);
+            pointer-events: none; z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <header><h1>胡耶塔</h1></header>
+    <div class="status">
+        <span id="l">LINK: ATTEMPTING_CONNECTION...</span>
+        <span id="api-info">TARGET: NULL</span>
+    </div>
+    <div id="chat"></div>
+    <div class="controls">
+        <input type="text" id="nk" placeholder="NICK" maxlength="10">
+        <input type="text" id="ms" placeholder="DATA_INPUT..." style="flex-grow:1" autocomplete="off">
+        <button id="ex">EXEC</button>
+    </div>
+
+    <script>
+        const chat = document.getElementById('chat');
+        const l = document.getElementById('l');
+        const apiInfo = document.getElementById('api-info');
+        
+        // КРИТИЧЕСКИЙ ФИКС: Определение API
+        // Если открыто как локальный файл - используем localhost:8888
+        // Если открыто через туннель - используем текущий домен
+        const isLocalFile = window.location.protocol === 'file:';
+        const API = isLocalFile ? 'http://localhost:8888/api' : window.location.origin + '/api';
+        
+        apiInfo.innerText = `ENDPOINT: ${API}`;
+
+        let cache = "";
+        const a = new (window.AudioContext || window.webkitAudioContext)();
+
+        function beep(f, d) {
+            try {
+                const o = a.createOscillator(); const g = a.createGain();
+                o.type = 'square'; o.frequency.value = f; g.gain.value = 0.01;
+                o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + d);
+            } catch(e) {}
+        }
+
+        function typeText(newText) {
+            let i = cache.length;
+            cache = newText;
+            const interval = setInterval(() => {
+                if (i < newText.length) {
+                    chat.innerText = newText.substring(0, i + 1) + "_";
+                    chat.scrollTop = chat.scrollHeight;
+                    if (newText[i] !== " " && newText[i] !== "\n") beep(1000, 0.01);
+                    i++;
+                } else {
+                    chat.innerText = newText;
+                    clearInterval(interval);
+                }
+            }, 20);
+        }
+
+        async function sync() {
+            try {
+                const r = await fetch(API, { 
+                    method: 'GET',
+                    cache: 'no-store',
+                    headers: { 'Accept': 'text/plain' }
+                });
+                
+                if (!r.ok) throw new Error("Server Error");
+                
+                const t = await r.text();
+                if (t !== cache) {
+                    if (cache === "") { chat.innerText = t; cache = t; } 
+                    else { typeText(t); }
+                }
+                l.innerText = "LINK: STABLE"; l.style.color = "var(--n)";
+            } catch (e) {
+                l.innerText = "LINK: OFFLINE"; l.style.color = "red";
+                console.error("Connection failed:", e);
+            }
+        }
+
+        async function send() {
+            const n = document.getElementById('nk').value || "ANON";
+            const m = document.getElementById('ms').value;
+            if (!m) return;
+            
+            beep(400, 0.05);
+            try {
+                const res = await fetch(API, { 
+                    method: 'POST', 
+                    mode: 'cors',
+                    body: `${n}: ${m}` 
+                });
+                if (res.ok) {
+                    document.getElementById('ms').value = '';
+                    sync();
+                }
+            } catch (e) {
+                l.innerText = "SEND_ERR: DATA_LOST";
+            }
+        }
+
+        document.getElementById('ex').onclick = send;
+        document.getElementById('ms').onkeypress = (e) => { if(e.key==='Enter') send(); };
+        
+        // Раз в 1.5 сек - оптимально для туннелей
+        setInterval(sync, 1500); 
+        sync();
+        
+        document.body.onclick = () => { if(a.state === 'suspended') a.resume(); };
+    </script>
+</body>
+</html>
