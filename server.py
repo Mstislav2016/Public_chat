@@ -14,13 +14,15 @@ if not os.path.exists(DB_FILE):
 class HuyetaHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, format, *args): return
 
-    def end_headers(self):
+def end_headers(self):
+        # Разрешаем доступ любому источнику (даже локальному файлу)
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         super().end_headers()
 
     def do_OPTIONS(self):
+        # Браузер сначала шлет запрос OPTIONS, чтобы проверить разрешения
         self.send_response(200)
         self.end_headers()
 
@@ -63,3 +65,4 @@ socketserver.TCPServer.allow_reuse_address = True
 print(f"--- [SERVER ONLINE ON PORT {PORT}] ---")
 with socketserver.TCPServer(("0.0.0.0", PORT), HuyetaHandler) as httpd:
     httpd.serve_forever()
+
