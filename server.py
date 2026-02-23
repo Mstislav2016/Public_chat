@@ -50,5 +50,4 @@ class HuyetaHandler(http.server.BaseHTTPRequestHandler):
 
 socketserver.TCPServer.allow_reuse_address = True
 with socketserver.TCPServer(("0.0.0.0", PORT), HuyetaHandler) as httpd:
-    print(f"Server started on port {PORT}")
     httpd.serve_forever()
