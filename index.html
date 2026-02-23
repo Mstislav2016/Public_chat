@@ -2,13 +2,14 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>胡耶塔 // TERMINAL</title>
+    <title>胡耶塔 // CHAT</title>
     <style>
-        body { background: #050505; color: #00ff41; font-family: monospace; display: flex; flex-direction: column; height: 100vh; margin: 0; }
-        #chat { flex-grow: 1; padding: 20px; overflow-y: auto; white-space: pre-wrap; border-bottom: 1px solid #00ff41; }
-        .controls { padding: 15px; display: flex; gap: 10px; background: #000; }
-        input { background: #000; border: 1px solid #00ff41; color: #00ff41; padding: 8px; font-family: inherit; }
-        #key { border-color: #ff0055; color: #ff0055; width: 100px; }
+        body { background: #000; color: #00ff41; font-family: monospace; display: flex; flex-direction: column; height: 100vh; margin: 0; }
+        #chat { flex-grow: 1; padding: 15px; overflow-y: auto; white-space: pre-wrap; border-bottom: 1px solid #00ff41; }
+        .controls { padding: 10px; display: flex; gap: 5px; }
+        input { background: #111; border: 1px solid #00ff41; color: #00ff41; padding: 8px; }
+        #nk { width: 70px; }
+        #key { width: 100px; border-color: #ff0055; }
         #ms { flex-grow: 1; }
         button { background: #00ff41; color: #000; border: none; padding: 8px 15px; cursor: pointer; font-weight: bold; }
     </style>
@@ -16,85 +17,64 @@
 <body>
     <div id="chat"></div>
     <div class="controls">
-        <input type="text" id="nk" placeholder="NICK" style="width: 60px;">
-        <input type="password" id="key" placeholder="KEY">
-        <input type="text" id="ms" placeholder="MESSAGE..." autocomplete="off">
-        <button id="ex">SEND</button>
+        <input type="text" id="nk" placeholder="НИК">
+        <input type="password" id="key" placeholder="КЛЮЧ">
+        <input type="text" id="ms" placeholder="СООБЩЕНИЕ..." autocomplete="off">
+        <button id="ex">ОТПРАВИТЬ</button>
     </div>
 
     <script>
         const chat = document.getElementById('chat');
-        // ЗАМЕНИ НА СВОЮ ССЫЛКУ RENDER
-        const API = window.location.protocol === 'file:' ? 'https://public-chat-4p8s.onrender.com/api' : '/api';
-        
-        let cacheLines = [];
-        const noise = "0123456789ABCDEF%$#@&*";
+        // ЗАМЕНИ НА СВОЮ ССЫЛКУ ОТ RENDER (например https://my-chat.onrender.com/api)
+        const RENDER_URL = 'https://public-chat-4p8s.onrender.com/api'; 
+        const API = window.location.protocol === 'file:' ? RENDER_URL : '/api';
 
-        // Шифрование (UTF-8)
-        function crypt(text, key) {
+        let cache = [];
+
+        // Функция шифрования/дешифрования (XOR + UTF-8)
+        function xor(text, key) {
             if (!key) return text;
-            const tBytes = new TextEncoder().encode(text);
-            const kBytes = new TextEncoder().encode(key);
-            const res = new Uint8Array(tBytes.length);
-            for(let i=0; i<tBytes.length; i++) res[i] = tBytes[i] ^ kBytes[i % kBytes.length];
-            return btoa(String.fromCharCode(...res));
-        }
-
-        // Дешифровка (UTF-8)
-        function decrypt(b64, key) {
-            try {
-                const bytes = new Uint8Array(atob(b64).split("").map(c => c.charCodeAt(0)));
-                const kBytes = new TextEncoder().encode(key);
-                const res = new Uint8Array(bytes.length);
-                for(let i=0; i<bytes.length; i++) res[i] = bytes[i] ^ kBytes[i % kBytes.length];
-                return new TextDecoder().decode(res);
-            } catch(e) { return "Ошибка ключа"; }
-        }
-
-        // Анимация
-        function animate(el, user, text) {
-            let i = 0;
-            const timer = setInterval(() => {
-                el.innerText = `${user}: ` + text.split("").map((char, idx) => {
-                    if (idx < i) return text[idx];
-                    return noise[Math.floor(Math.random() * noise.length)];
-                }).join("");
-                if (i >= text.length) clearInterval(timer);
-                i += 0.5;
-            }, 40);
+            const t = new TextEncoder().encode(text);
+            const k = new TextEncoder().encode(key);
+            return t.map((b, i) => b ^ k[i % k.length]);
         }
 
         async function sync() {
             try {
-                const res = await fetch(API);
-                const data = await res.text();
-                const lines = data.split('\n').filter(l => l.trim());
+                const r = await fetch(API);
+                const t = await r.text();
+                const lines = t.split('\n').filter(l => l.trim());
                 const key = document.getElementById('key').value;
 
-                lines.forEach((line, idx) => {
-                    if (!cacheLines[idx] || cacheLines[idx] !== line) {
-                        const div = document.createElement('div');
-                        chat.appendChild(div);
-                        if (line.includes(": ")) {
-                            let [u, p] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
-                            let dec = decrypt(p, key);
-                            animate(div, u, dec);
-                        } else { div.innerText = line; }
-                        cacheLines[idx] = line;
-                        chat.scrollTop = chat.scrollHeight;
-                    }
+                let output = "";
+                lines.forEach(line => {
+                    if (line.includes(": ")) {
+                        const [user, b64] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
+                        try {
+                            const bytes = new Uint8Array(atob(b64).split("").map(c => c.charCodeAt(0)));
+                            const decrypted = new TextDecoder().decode(xor(String.fromCharCode(...bytes), key));
+                            output += `${user}: ${decrypted}\n`;
+                        } catch(e) { output += line + "\n"; }
+                    } else { output += line + "\n"; }
                 });
+
+                if (output !== chat.innerText) {
+                    chat.innerText = output;
+                    chat.scrollTop = chat.scrollHeight;
+                }
             } catch(e) {}
         }
 
         async function send() {
             const n = document.getElementById('nk').value || "ANON";
-            const k = document.getElementById('key').value;
             const m = document.getElementById('ms').value;
+            const k = document.getElementById('key').value;
             if (!m) return;
 
-            const payload = crypt(m, k);
-            await fetch(API, { method: 'POST', body: `${n}: ${payload}` });
+            const encrypted = xor(m, k);
+            const b64 = btoa(String.fromCharCode(...encrypted));
+            
+            await fetch(API, { method: 'POST', body: `${n}: ${b64}` });
             document.getElementById('ms').value = '';
             sync();
         }
