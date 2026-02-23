@@ -22,12 +22,12 @@ class HuyetaHandler(http.server.BaseHTTPRequestHandler):
         if self.path == '/api':
             self.send_response(200)
             self.send_header('Content-type', 'text/plain; charset=utf-8')
-            if os.path.exists(DB_FILE):
-                with open(DB_FILE, "r", encoding="utf-8") as f:
-                    data = f.read().encode('utf-8')
-                self.send_header('Content-Length', len(data))
-                self.end_headers()
-                self.wfile.write(data)
+            if not os.path.exists(DB_FILE): open(DB_FILE, 'w').close()
+            with open(DB_FILE, "r", encoding="utf-8") as f:
+                data = f.read().encode('utf-8')
+            self.send_header('Content-Length', len(data))
+            self.end_headers()
+            self.wfile.write(data)
         else:
             file_path = os.path.join(os.path.dirname(__file__), 'index.html')
             try:
@@ -36,7 +36,7 @@ class HuyetaHandler(http.server.BaseHTTPRequestHandler):
                     self.send_header('Content-type', 'text/html; charset=utf-8')
                     self.end_headers()
                     self.wfile.write(f.read())
-            except FileNotFoundError:
+            except:
                 self.send_error(404)
 
     def do_POST(self):
@@ -50,5 +50,5 @@ class HuyetaHandler(http.server.BaseHTTPRequestHandler):
 
 socketserver.TCPServer.allow_reuse_address = True
 with socketserver.TCPServer(("0.0.0.0", PORT), HuyetaHandler) as httpd:
-    print(f"PORT {PORT} ACTIVE")
+    print(f"Server started on port {PORT}")
     httpd.serve_forever()
