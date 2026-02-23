@@ -2,142 +2,107 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>胡耶塔 // FINAL_FIX</title>
+    <title>胡耶塔 // TERMINAL</title>
     <style>
-#ms { 
-    flex-grow: 1; 
-    background: #000 !important; /* Принудительно черный фон */
-    color: var(--n) !important;  /* Принудительно зеленый текст */
-    z-index: 9999;               /* Выводим на самый передний план */
-    position: relative;
-    border: 1px solid var(--n);
-    min-height: 40px;
-}
-.controls { 
-    width: 95%; 
-    max-width: 800px; 
-    display: flex; 
-    gap: 8px; 
-    padding: 10px;
-    background: var(--b); /* Чтобы фон под кнопками не был прозрачным */
-    z-index: 1000;
-}
+        body { background: #050505; color: #00ff41; font-family: monospace; display: flex; flex-direction: column; height: 100vh; margin: 0; }
+        #chat { flex-grow: 1; padding: 20px; overflow-y: auto; white-space: pre-wrap; border-bottom: 1px solid #00ff41; }
+        .controls { padding: 15px; display: flex; gap: 10px; background: #000; }
+        input { background: #000; border: 1px solid #00ff41; color: #00ff41; padding: 8px; font-family: inherit; }
+        #key { border-color: #ff0055; color: #ff0055; width: 100px; }
+        #ms { flex-grow: 1; }
+        button { background: #00ff41; color: #000; border: none; padding: 8px 15px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
-    <header><h1>胡耶塔 // TERMINAL_V3</h1></header>
-    <div class="status">
-        <span id="l">LINK: OFF</span>
-        <span>PROTOCOL: XOR_UTF8</span>
-    </div>
     <div id="chat"></div>
-<div class="controls">
-    <input type="text" id="nk" placeholder="NICK" style="width: 70px;">
-    <input type="password" id="key" placeholder="KEY">
-    <input type="text" id="ms" placeholder="MESSAGE..." autocomplete="off" autofocus>
-    <button id="ex">SEND</button>
-</div>
+    <div class="controls">
+        <input type="text" id="nk" placeholder="NICK" style="width: 60px;">
+        <input type="password" id="key" placeholder="KEY">
+        <input type="text" id="ms" placeholder="MESSAGE..." autocomplete="off">
+        <button id="ex">SEND</button>
+    </div>
 
     <script>
         const chat = document.getElementById('chat');
-        const l = document.getElementById('l');
+        // ЗАМЕНИ НА СВОЮ ССЫЛКУ RENDER
+        const API = window.location.protocol === 'file:' ? 'https://public-chat-4p8s.onrender.com/api' : '/api';
         
-        // --- ЗАМЕНИ ЭТУ ССЫЛКУ НА СВОЮ ОТ RENDER ---
-        const RENDER_URL = 'https://control-u6bq.onrender.com/api'; 
-        const API = window.location.protocol === 'file:' ? RENDER_URL : '/api';
+        let cacheLines = [];
+        const noise = "0123456789ABCDEF%$#@&*";
 
-        let processedMessages = new Set(); // Чтобы не дублировать сообщения
-        const noiseChars = "0123456789ABCDEF$#@%&*";
-
-        function crypt(bytes, key) {
-            if (!key) return bytes;
-            const k = new TextEncoder().encode(key);
-            return bytes.map((b, i) => b ^ k[i % k.length]);
+        // Шифрование (UTF-8)
+        function crypt(text, key) {
+            if (!key) return text;
+            const tBytes = new TextEncoder().encode(text);
+            const kBytes = new TextEncoder().encode(key);
+            const res = new Uint8Array(tBytes.length);
+            for(let i=0; i<tBytes.length; i++) res[i] = tBytes[i] ^ kBytes[i % kBytes.length];
+            return btoa(String.fromCharCode(...res));
         }
 
-        function animateDecrypt(el, user, text) {
-            let iter = 0;
-            const duration = text.length;
-            const interval = setInterval(() => {
-                el.innerText = `${user}: ` + text.split("").map((char, i) => {
-                    if (i < iter) return text[i];
-                    return noiseChars[Math.floor(Math.random() * noiseChars.length)];
+        // Дешифровка (UTF-8)
+        function decrypt(b64, key) {
+            try {
+                const bytes = new Uint8Array(atob(b64).split("").map(c => c.charCodeAt(0)));
+                const kBytes = new TextEncoder().encode(key);
+                const res = new Uint8Array(bytes.length);
+                for(let i=0; i<bytes.length; i++) res[i] = bytes[i] ^ kBytes[i % kBytes.length];
+                return new TextDecoder().decode(res);
+            } catch(e) { return "Ошибка ключа"; }
+        }
+
+        // Анимация
+        function animate(el, user, text) {
+            let i = 0;
+            const timer = setInterval(() => {
+                el.innerText = `${user}: ` + text.split("").map((char, idx) => {
+                    if (idx < i) return text[idx];
+                    return noise[Math.floor(Math.random() * noise.length)];
                 }).join("");
-                
-                if (iter >= duration) {
-                    clearInterval(interval);
-                    el.innerText = `${user}: ${text}`;
-                }
-                iter += 1/2; // Скорость (1/2 — нормально, 1/5 — медленно)
+                if (i >= text.length) clearInterval(timer);
+                i += 0.5;
             }, 40);
         }
 
         async function sync() {
             try {
-                const r = await fetch(API);
-                const t = await r.text();
-                const lines = t.split('\n').filter(x => x.trim());
+                const res = await fetch(API);
+                const data = await res.text();
+                const lines = data.split('\n').filter(l => l.trim());
                 const key = document.getElementById('key').value;
 
-                lines.forEach((line, index) => {
-                    // Создаем уникальный ключ для каждой строки на основе её текста и позиции
-                    const msgId = btoa(line) + index; 
-                    
-                    if (!processedMessages.has(msgId)) {
+                lines.forEach((line, idx) => {
+                    if (!cacheLines[idx] || cacheLines[idx] !== line) {
                         const div = document.createElement('div');
-                        div.className = "msg-line";
                         chat.appendChild(div);
-
                         if (line.includes(": ")) {
-                            let [user, payload] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
-                            try {
-                                const bytes = new Uint8Array(atob(payload).split("").map(c => c.charCodeAt(0)));
-                                const decoded = new TextDecoder().decode(crypt(bytes, key));
-                                animateDecrypt(div, user, decoded);
-                            } catch(e) {
-                                div.innerText = line; // Если не Base64, выводим как есть
-                            }
-                        } else {
-                            div.innerText = line;
-                        }
-                        
-                        processedMessages.add(msgId);
+                            let [u, p] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
+                            let dec = decrypt(p, key);
+                            animate(div, u, dec);
+                        } else { div.innerText = line; }
+                        cacheLines[idx] = line;
                         chat.scrollTop = chat.scrollHeight;
                     }
                 });
-                l.innerText = "LINK: ONLINE"; l.style.color = "var(--n)";
-            } catch(e) {
-                l.innerText = "LINK: ERROR"; l.style.color = "var(--r)";
-            }
+            } catch(e) {}
         }
 
         async function send() {
             const n = document.getElementById('nk').value || "ANON";
-            const m = document.getElementById('ms').value;
             const k = document.getElementById('key').value;
+            const m = document.getElementById('ms').value;
             if (!m) return;
 
-            const bytes = crypt(new TextEncoder().encode(m), k);
-            const b64 = btoa(String.fromCharCode(...bytes));
-            
-            try {
-                const response = await fetch(API, { method: 'POST', body: `${n}: ${b64}` });
-                if (response.ok) {
-                    document.getElementById('ms').value = '';
-                    sync(); // Сразу обновляем чат
-                }
-            } catch(e) { console.error("Send failed"); }
+            const payload = crypt(m, k);
+            await fetch(API, { method: 'POST', body: `${n}: ${payload}` });
+            document.getElementById('ms').value = '';
+            sync();
         }
 
         document.getElementById('ex').onclick = send;
         document.getElementById('ms').onkeypress = (e) => e.key === 'Enter' && send();
-        
-        // Интервал обновления
         setInterval(sync, 2000);
         sync();
     </script>
 </body>
 </html>
-
-
-
