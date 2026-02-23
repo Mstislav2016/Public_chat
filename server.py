@@ -1,14 +1,13 @@
 import http.server
 import socketserver
 import os
-import sys
 
-# Настройка кодировки для Windows CMD, чтобы не было ошибок вывода
-if sys.platform == "win32":
-    sys.stdout.reconfigure(encoding='utf-8')
+PORT = int(os.environ.get("PORT", 8888)) # Render сам назначит порт
+DB_FILE = "messages.txt"
 
-PORT = 1080
-CHAT_HISTORY = "--- [胡耶塔] СИСТЕМА ОНЛАЙН ---\n"
+if not os.path.exists(DB_FILE):
+    with open(DB_FILE, "w", encoding="utf-8") as f:
+        f.write("--- [胡耶塔] СИСТЕМА ОНЛАЙН ---\n")
 
 class HuyetaHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, format, *args): return
@@ -19,59 +18,36 @@ class HuyetaHandler(http.server.BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         super().end_headers()
 
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self.end_headers()
-
     def do_GET(self):
-        global CHAT_HISTORY
-        # Определяем путь к файлу index.html в той же папке
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        file_path = os.path.join(base_dir, 'index.html')
-
         if self.path == '/api':
             self.send_response(200)
             self.send_header('Content-type', 'text/plain; charset=utf-8')
-            data = CHAT_HISTORY.encode('utf-8')
+            with open(DB_FILE, "r", encoding="utf-8") as f:
+                data = f.read().encode('utf-8')
             self.send_header('Content-Length', len(data))
             self.end_headers()
             self.wfile.write(data)
         else:
-            if os.path.exists(file_path):
+            file_path = os.path.join(os.path.dirname(__file__), 'index.html')
+            try:
                 with open(file_path, 'rb') as f:
-                    content = f.read()
                     self.send_response(200)
                     self.send_header('Content-type', 'text/html; charset=utf-8')
-                    self.send_header('Content-Length', len(content))
                     self.end_headers()
-                    self.wfile.write(content)
-            else:
-                self.send_response(404)
-                self.send_header('Content-type', 'text/plain; charset=utf-8')
-                self.end_headers()
-                msg = f"ОШИБКА: Файл index.html не найден в папке: {base_dir}".encode('utf-8')
-                self.wfile.write(msg)
+                    self.wfile.write(f.read())
+            except:
+                self.send_error(404)
 
     def do_POST(self):
-        global CHAT_HISTORY
-        try:
-            length = int(self.headers.get('Content-Length', 0))
-            data = self.rfile.read(length).decode('utf-8')
-            if data:
-                CHAT_HISTORY += data + "\n"
-                print(f"[RECV]: {data}")
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"OK")
-        except Exception as e:
-            print(f"Ошибка POST: {e}")
-            self.send_error(500)
+        length = int(self.headers.get('Content-Length', 0))
+        data = self.rfile.read(length).decode('utf-8')
+        if data:
+            with open(DB_FILE, "a", encoding="utf-8") as f:
+                f.write(data + "\n")
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
 
-socketserver.TCPServer.allow_reuse_address = True
-try:
-    with socketserver.TCPServer(("0.0.0.0", PORT), HuyetaHandler) as httpd:
-        print(f"--- [CORE HUYETA ACTIVE ON PORT {PORT}] ---")
-        print(f"Папка сервера: {os.path.dirname(os.path.abspath(__file__))}")
-        httpd.serve_forever()
-except Exception as e:
-    print(f"Критическая ошибка запуска: {e}")
+with socketserver.TCPServer(("0.0.0.0", PORT), HuyetaHandler) as httpd:
+    print(f"ONLINE ON PORT {PORT}")
+    httpd.serve_forever()
