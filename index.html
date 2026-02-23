@@ -2,12 +2,12 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>胡耶塔 // CRYPTO_NODE_FIXED</title>
+    <title>胡耶塔 // DECRYPTING_NODE</title>
     <style>
         :root { --n: #00ff41; --b: #050505; --r: #ff0055; }
         body { background: var(--b); color: var(--n); font-family: 'Consolas', monospace; display: flex; flex-direction: column; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
         header { width: 100%; text-align: center; border-bottom: 1px solid var(--n); padding: 10px; background: rgba(0,255,65,0.05); }
-        #chat { width: 95%; max-width: 900px; flex-grow: 1; margin: 15px 0; padding: 15px; border: 1px solid var(--n); overflow-y: auto; background: rgba(0,20,0,0.2); white-space: pre-wrap; font-size: 0.9rem; }
+        #chat { width: 95%; max-width: 900px; flex-grow: 1; margin: 15px 0; padding: 15px; border: 1px solid var(--n); overflow-y: auto; background: rgba(0,20,0,0.2); font-size: 0.9rem; }
         .controls { width: 95%; max-width: 900px; display: flex; gap: 8px; padding-bottom: 20px; flex-wrap: wrap; }
         input { background: rgba(0,40,0,0.3); border: 1px solid var(--n); color: var(--n); padding: 10px; outline: none; font-family: inherit; }
         #nk { width: 80px; }
@@ -15,20 +15,22 @@
         #ms { flex-grow: 1; min-width: 200px; }
         button { background: var(--n); color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; }
         .status { width: 95%; max-width: 900px; font-size: 0.7rem; display: flex; justify-content: space-between; margin-bottom: 5px; opacity: 0.7; }
+        .msg-line { margin-bottom: 4px; border-left: 2px solid transparent; padding-left: 5px; }
+        .new-msg { border-left-color: var(--n); }
     </style>
 </head>
 <body>
-    <header><h1>胡耶塔 // CRYPTO_STABLE</h1></header>
+    <header><h1>胡耶塔 // DECRYPTION_OS</h1></header>
     <div class="status">
         <span id="l">LINK: ATTEMPTING...</span>
-        <span>ENC: UTF8_XOR_B64</span>
+        <span>CIPHER: AES_XOR_RAW</span>
     </div>
     <div id="chat"></div>
     <div class="controls">
         <input type="text" id="nk" placeholder="NICK" maxlength="10">
         <input type="password" id="key" placeholder="CIPHER_KEY">
-        <input type="text" id="ms" placeholder="TYPE DATA..." autocomplete="off">
-        <button id="ex">SEND</button>
+        <input type="text" id="ms" placeholder="ENCRYPTED_STREAM..." autocomplete="off">
+        <button id="ex">EXEC</button>
     </div>
 
     <script>
@@ -38,13 +40,12 @@
         const nkIn = document.getElementById('nk');
         const keyIn = document.getElementById('key');
 
-        // ЗАМЕНИ НА СВОЮ ССЫЛКУ RENDER
         const RENDER_URL = 'https://public-chat-4p8s.onrender.com/api'; 
         const API = window.location.protocol === 'file:' ? RENDER_URL : window.location.origin + '/api';
 
-        let cache = "";
+        let cacheLines = [];
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()_+{}|<>?";
 
-        // Улучшенное шифрование для работы с байтами (UTF-8)
         function crypt(bytes, key) {
             const keyBytes = new TextEncoder().encode(key);
             const result = new Uint8Array(bytes.length);
@@ -54,42 +55,66 @@
             return result;
         }
 
-        // Вспомогательные функции для Base64
-        function uint8ToBase64(uint8) {
-            return btoa(String.fromCharCode.apply(null, uint8));
-        }
         function base64ToUint8(b64) {
-            return new Uint8Array(atob(b64).split("").map(c => c.charCodeAt(0)));
+            try { return new Uint8Array(atob(b64).split("").map(c => c.charCodeAt(0))); }
+            catch(e) { return null; }
+        }
+
+        // Анимация расшифровки строки
+        function animateDecrypt(element, finalUser, finalText) {
+            let iteration = 0;
+            const interval = setInterval(() => {
+                element.innerText = `${finalUser}: ` + finalText
+                    .split("")
+                    .map((char, index) => {
+                        if(index < iteration) return finalText[index];
+                        return chars[Math.floor(Math.random() * chars.length)];
+                    })
+                    .join("");
+                
+                if(iteration >= finalText.length) {
+                    clearInterval(interval);
+                    element.innerText = `${finalUser}: ${finalText}`;
+                }
+                iteration += 1/2; // Скорость расшифровки
+            }, 30);
         }
 
         async function sync() {
             try {
-                const r = await fetch(API, { mode: 'cors' });
+                const r = await fetch(API);
                 const t = await r.text();
                 const secret = keyIn.value;
-                
-                let lines = t.split('\n');
-                let processed = "";
+                const newLines = t.split('\n').filter(line => line.trim() !== "");
 
-                lines.forEach(line => {
-                    if (!line.includes(": ")) { processed += line + "\n"; return; }
-                    let [user, payload] = [line.slice(0, line.indexOf(": ")), line.slice(line.indexOf(": ") + 2)];
-
-                    try {
-                        const encryptedBytes = base64ToUint8(payload);
-                        const decryptedBytes = crypt(encryptedBytes, secret);
-                        const decryptedText = new TextDecoder().decode(decryptedBytes);
-                        processed += `${user}: ${decryptedText}\n`;
-                    } catch(e) {
-                        processed += line + "\n";
+                newLines.forEach((line, idx) => {
+                    // Если этой строки еще нет в кэше
+                    if (!cacheLines[idx] || cacheLines[idx] !== line) {
+                        const div = document.createElement('div');
+                        div.className = "msg-line new-msg";
+                        chat.appendChild(div);
+                        
+                        if (!line.includes(": ")) {
+                            div.innerText = line;
+                        } else {
+                            let [user, payload] = [line.slice(0, line.indexOf(": ")), line.slice(line.indexOf(": ") + 2)];
+                            const encryptedBytes = base64ToUint8(payload);
+                            
+                            if (encryptedBytes) {
+                                try {
+                                    const decryptedBytes = crypt(encryptedBytes, secret);
+                                    const decryptedText = new TextDecoder().decode(decryptedBytes);
+                                    animateDecrypt(div, user, decryptedText);
+                                } catch(e) { div.innerText = line; }
+                            } else {
+                                div.innerText = line;
+                            }
+                        }
+                        cacheLines[idx] = line;
+                        chat.scrollTop = chat.scrollHeight;
                     }
                 });
 
-                if (processed !== cache) {
-                    chat.innerText = processed;
-                    chat.scrollTop = chat.scrollHeight;
-                    cache = processed;
-                }
                 l.innerText = "LINK: STABLE"; l.style.color = "var(--n)";
             } catch (e) {
                 l.innerText = "LINK: ERROR"; l.style.color = "var(--r)";
@@ -102,9 +127,7 @@
             const message = msIn.value;
             if (!message) return;
 
-            const textBytes = new TextEncoder().encode(message);
-            const encryptedBytes = crypt(textBytes, secret);
-            const b64Data = uint8ToBase64(encryptedBytes);
+            const b64Data = btoa(String.fromCharCode.apply(null, crypt(new TextEncoder().encode(message), secret)));
             
             try {
                 await fetch(API, { method: 'POST', mode: 'cors', body: `${nick}: ${b64Data}` });
