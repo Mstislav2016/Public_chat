@@ -1,86 +1,82 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
     <meta charset="UTF-8">
     <title>胡耶塔 // CHAT</title>
     <style>
-        body { background: #000; color: #00ff41; font-family: monospace; display: flex; flex-direction: column; height: 100vh; margin: 0; }
-        #chat { flex-grow: 1; padding: 15px; overflow-y: auto; white-space: pre-wrap; border-bottom: 1px solid #00ff41; }
-        .controls { padding: 10px; display: flex; gap: 5px; }
-        input { background: #111; border: 1px solid #00ff41; color: #00ff41; padding: 8px; }
-        #nk { width: 70px; }
-        #key { width: 100px; border-color: #ff0055; }
+        body { background: #000; color: #00ff41; font-family: monospace; }
+        #chat { height: 80vh; overflow-y: auto; padding: 20px; border-bottom: 1px solid #00ff41; white-space: pre-wrap; }
+        .inputs { padding: 10px; display: flex; gap: 10px; }
+        input { background: #000; border: 1px solid #00ff41; color: #00ff41; padding: 5px; }
         #ms { flex-grow: 1; }
-        button { background: #00ff41; color: #000; border: none; padding: 8px 15px; cursor: pointer; font-weight: bold; }
+        #key { border-color: #ff0055; }
+        button { background: #00ff41; color: #000; border: none; cursor: pointer; font-weight: bold; padding: 5px 15px; }
     </style>
 </head>
 <body>
     <div id="chat"></div>
-    <div class="controls">
-        <input type="text" id="nk" placeholder="НИК">
+    <div class="inputs">
+        <input type="text" id="nk" placeholder="НИК" style="width: 80px;">
         <input type="password" id="key" placeholder="КЛЮЧ">
         <input type="text" id="ms" placeholder="СООБЩЕНИЕ..." autocomplete="off">
-        <button id="ex">ОТПРАВИТЬ</button>
+        <button onclick="send()">ОТПРАВИТЬ</button>
     </div>
 
     <script>
         const chat = document.getElementById('chat');
-        // ЗАМЕНИ НА СВОЮ ССЫЛКУ ОТ RENDER (например https://my-chat.onrender.com/api)
+        // ЗАМЕНИ НА СВОЮ ССЫЛКУ RENDER
         const RENDER_URL = 'https://public-chat-4p8s.onrender.com/api'; 
         const API = window.location.protocol === 'file:' ? RENDER_URL : '/api';
 
-        let cache = [];
-
-        // Функция шифрования/дешифрования (XOR + UTF-8)
-        function xor(text, key) {
+        function crypt(text, key) {
             if (!key) return text;
-            const t = new TextEncoder().encode(text);
-            const k = new TextEncoder().encode(key);
-            return t.map((b, i) => b ^ k[i % k.length]);
+            let res = "";
+            for (let i = 0; i < text.length; i++) {
+                res += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+            }
+            return res;
         }
 
         async function sync() {
             try {
                 const r = await fetch(API);
                 const t = await r.text();
-                const lines = t.split('\n').filter(l => l.trim());
                 const key = document.getElementById('key').value;
-
-                let output = "";
+                const lines = t.split('\n').filter(l => l.trim());
+                
+                let out = "";
                 lines.forEach(line => {
                     if (line.includes(": ")) {
-                        const [user, b64] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
+                        let parts = line.split(": ");
+                        let user = parts[0];
+                        let payload = parts.slice(1).join(": ");
                         try {
-                            const bytes = new Uint8Array(atob(b64).split("").map(c => c.charCodeAt(0)));
-                            const decrypted = new TextDecoder().decode(xor(String.fromCharCode(...bytes), key));
-                            output += `${user}: ${decrypted}\n`;
-                        } catch(e) { output += line + "\n"; }
-                    } else { output += line + "\n"; }
+                            // Декодируем Base64 -> XOR -> URI-декодирование для кириллицы
+                            let raw = crypt(atob(payload), key);
+                            out += user + ": " + decodeURIComponent(raw) + "\n";
+                        } catch(e) { out += line + "\n"; }
+                    } else { out += line + "\n"; }
                 });
-
-                if (output !== chat.innerText) {
-                    chat.innerText = output;
-                    chat.scrollTop = chat.scrollHeight;
-                }
+                chat.innerText = out;
+                chat.scrollTop = chat.scrollHeight;
             } catch(e) {}
         }
 
         async function send() {
             const n = document.getElementById('nk').value || "ANON";
-            const m = document.getElementById('ms').value;
             const k = document.getElementById('key').value;
+            const m = document.getElementById('ms').value;
             if (!m) return;
 
-            const encrypted = xor(m, k);
-            const b64 = btoa(String.fromCharCode(...encrypted));
-            
-            await fetch(API, { method: 'POST', body: `${n}: ${b64}` });
-            document.getElementById('ms').value = '';
+            // Кодируем кириллицу в URI-безопасный вид -> XOR -> Base64
+            const safeText = encodeURIComponent(m);
+            const encrypted = btoa(crypt(safeText, k));
+
+            await fetch(API, { method: 'POST', body: n + ": " + encrypted });
+            document.getElementById('ms').value = "";
             sync();
         }
 
-        document.getElementById('ex').onclick = send;
-        document.getElementById('ms').onkeypress = (e) => e.key === 'Enter' && send();
         setInterval(sync, 2000);
         sync();
     </script>
