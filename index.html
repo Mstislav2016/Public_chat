@@ -1,70 +1,111 @@
-<div class="controls">
-    <input type="text" id="nk" placeholder="NICK" style="width:80px">
-    <input type="password" id="key" placeholder="SECRET_KEY" style="width:100px">
-    <input type="text" id="ms" placeholder="ENCRYPTED_DATA_INPUT..." style="flex-grow:1" autocomplete="off">
-    <button id="ex">EXEC</button>
-</div>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>胡耶塔 // CRYPTO_NODE</title>
+    <style>
+        :root { --n: #00ff41; --b: #050505; }
+        body { background: var(--b); color: var(--n); font-family: 'Consolas', monospace; display: flex; flex-direction: column; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
+        header { width: 100%; text-align: center; border-bottom: 1px solid var(--n); padding: 10px; background: rgba(0,255,65,0.05); }
+        #chat { width: 95%; max-width: 900px; flex-grow: 1; margin: 15px 0; padding: 15px; border: 1px solid var(--n); overflow-y: auto; background: rgba(0,20,0,0.2); white-space: pre-wrap; font-size: 0.9rem; }
+        .controls { width: 95%; max-width: 900px; display: flex; gap: 8px; padding-bottom: 20px; flex-wrap: wrap; }
+        input { background: rgba(0,40,0,0.3); border: 1px solid var(--n); color: var(--n); padding: 10px; outline: none; font-family: inherit; }
+        #nk { width: 80px; }
+        #key { width: 120px; border-color: #ff0055; color: #ff0055; } /* Ключ выделен цветом */
+        #ms { flex-grow: 1; min-width: 200px; }
+        button { background: var(--n); color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #fff; box-shadow: 0 0 10px #fff; }
+        .status { width: 95%; max-width: 900px; font-size: 0.7rem; display: flex; justify-content: space-between; margin-bottom: 5px; opacity: 0.7; }
+    </style>
+</head>
+<body>
+    <header><h1>胡耶塔 // NODE</h1></header>
+    <div class="status">
+        <span id="l">LINK: WAITING...</span>
+        <span>ENCRYPTION: XOR_BASE64</span>
+    </div>
+    <div id="chat"></div>
+    <div class="controls">
+        <input type="text" id="nk" placeholder="NICK" maxlength="10">
+        <input type="password" id="key" placeholder="CIPHER_KEY">
+        <input type="text" id="ms" placeholder="TYPE ENCRYPTED DATA..." autocomplete="off">
+        <button id="ex">SEND</button>
+    </div>
 
-<script>
-    // Функция шифрования/дешифрования (XOR по ключу)
-    function crypt(text, key) {
-        if (!key) return text; // Если ключа нет, не шифруем
-        let output = "";
-        for (let i = 0; i < text.length; i++) {
-            // Применяем XOR к коду символа
-            let charCode = text.charCodeAt(i) ^ key.charCodeAt(i % key.length);
-            output += String.fromCharCode(charCode);
-        }
-        return output;
-    }
+    <script>
+        const chat = document.getElementById('chat');
+        const l = document.getElementById('l');
+        const API = window.location.origin + '/api';
 
-    async function sync() {
-        try {
-            const r = await fetch(API);
-            const t = await r.text();
-            const secret = document.getElementById('key').value;
-            
-            // Разделяем сообщения и пробуем расшифровать каждое
-            let lines = t.split('\n');
-            let decodedOutput = "";
-            
-            lines.forEach(line => {
-                if (!line.includes(": ")) {
-                    decodedOutput += line + "\n";
-                    return;
-                }
-                let [user, msg] = line.split(": ");
-                try {
-                    // Пытаемся расшифровать только сообщение
-                    let decrypted = crypt(atob(msg), secret); // Используем Base64 для передачи
-                    decodedOutput += `${user}: ${decrypted}\n`;
-                } catch(e) {
-                    // Если расшифровать нельзя (не Base64), игнорируем или выводим как есть
-                    decodedOutput += line + "\n";
-                }
-            });
+        let cache = "";
 
-            if (decodedOutput !== cache) {
-                chat.innerText = decodedOutput;
-                chat.scrollTop = chat.scrollHeight;
-                cache = decodedOutput;
+        // XOR Шифрование
+        function crypt(text, key) {
+            if (!key) return text;
+            let result = "";
+            for (let i = 0; i < text.length; i++) {
+                result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
             }
-        } catch (e) {}
-    }
+            return result;
+        }
 
-    async function send() {
-        const n = document.getElementById('nk').value || "ANON";
-        const secret = document.getElementById('key').value;
-        const rawMsg = document.getElementById('ms').value;
-        if (!rawMsg) return;
+        async function sync() {
+            try {
+                const r = await fetch(API);
+                const t = await r.text();
+                const key = document.getElementById('key').value;
+                
+                let lines = t.split('\n');
+                let processed = "";
 
-        // Шифруем перед отправкой и кодируем в Base64 для безопасной передачи
-        const encryptedMsg = btoa(crypt(rawMsg, secret));
-        
-        try {
-            await fetch(API, { method: 'POST', body: `${n}: ${encryptedMsg}` });
-            document.getElementById('ms').value = '';
-            sync();
-        } catch (e) {}
-    }
-</script>
+                lines.forEach(line => {
+                    if (!line.includes(": ")) { processed += line + "\n"; return; }
+                    
+                    let parts = line.split(": ");
+                    let user = parts[0];
+                    let payload = parts.slice(1).join(": ");
+
+                    try {
+                        // Пытаемся декодировать Base64 и XOR
+                        let decrypted = crypt(atob(payload), key);
+                        processed += `${user}: ${decrypted}\n`;
+                    } catch(e) {
+                        // Если это не Base64 или ошибка — выводим как есть (игнорируем расшифровку)
+                        processed += line + "\n";
+                    }
+                });
+
+                if (processed !== cache) {
+                    chat.innerText = processed;
+                    chat.scrollTop = chat.scrollHeight;
+                    cache = processed;
+                }
+                l.innerText = "LINK: STABLE"; l.style.color = "var(--n)";
+            } catch (e) {
+                l.innerText = "LINK: ERROR"; l.style.color = "red";
+            }
+        }
+
+        async function send() {
+            const n = document.getElementById('nk').value || "ANON";
+            const k = document.getElementById('key').value;
+            const m = document.getElementById('ms').value;
+            if (!m) return;
+
+            // Шифруем и пакуем в Base64
+            const secretData = btoa(crypt(m, k));
+            
+            try {
+                await fetch(API, { method: 'POST', body: `${n}: ${secretData}` });
+                document.getElementById('ms').value = '';
+                sync();
+            } catch (e) {}
+        }
+
+        document.getElementById('ex').onclick = send;
+        document.getElementById('ms').onkeypress = (e) => { if(e.key==='Enter') send(); };
+        setInterval(sync, 2000);
+        sync();
+    </script>
+</body>
+</html>
