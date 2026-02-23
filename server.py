@@ -4,8 +4,8 @@ import os
 import threading
 
 # Настройки портов
-WEB_PORT = 8888  # Для загрузки самого сайта (index.html)
-API_PORT = 9999  # Для передачи сообщений (API)
+WEB_PORT = 21  # Для загрузки самого сайта (index.html)
+API_PORT = 20  # Для передачи сообщений (API)
 DB_FILE = "messages.txt"
 
 class WebHandler(http.server.BaseHTTPRequestHandler):
@@ -70,3 +70,4 @@ if __name__ == "__main__":
     # Запускаем два сервера в разных потоках
     threading.Thread(target=run_web, daemon=True).start()
     run_api()
+
