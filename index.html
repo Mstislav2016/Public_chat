@@ -1,111 +1,67 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <title>胡耶塔 // CRYPTO_NODE</title>
-    <style>
-        :root { --n: #00ff41; --b: #050505; }
-        body { background: var(--b); color: var(--n); font-family: 'Consolas', monospace; display: flex; flex-direction: column; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
-        header { width: 100%; text-align: center; border-bottom: 1px solid var(--n); padding: 10px; background: rgba(0,255,65,0.05); }
-        #chat { width: 95%; max-width: 900px; flex-grow: 1; margin: 15px 0; padding: 15px; border: 1px solid var(--n); overflow-y: auto; background: rgba(0,20,0,0.2); white-space: pre-wrap; font-size: 0.9rem; }
-        .controls { width: 95%; max-width: 900px; display: flex; gap: 8px; padding-bottom: 20px; flex-wrap: wrap; }
-        input { background: rgba(0,40,0,0.3); border: 1px solid var(--n); color: var(--n); padding: 10px; outline: none; font-family: inherit; }
-        #nk { width: 80px; }
-        #key { width: 120px; border-color: #ff0055; color: #ff0055; } /* Ключ выделен цветом */
-        #ms { flex-grow: 1; min-width: 200px; }
-        button { background: var(--n); color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #fff; box-shadow: 0 0 10px #fff; }
-        .status { width: 95%; max-width: 900px; font-size: 0.7rem; display: flex; justify-content: space-between; margin-bottom: 5px; opacity: 0.7; }
-    </style>
-</head>
-<body>
-    <header><h1>胡耶塔 // NODE</h1></header>
-    <div class="status">
-        <span id="l">LINK: WAITING...</span>
-        <span>ENCRYPTION: XOR_BASE64</span>
-    </div>
-    <div id="chat"></div>
-    <div class="controls">
-        <input type="text" id="nk" placeholder="NICK" maxlength="10">
-        <input type="password" id="key" placeholder="CIPHER_KEY">
-        <input type="text" id="ms" placeholder="TYPE ENCRYPTED DATA..." autocomplete="off">
-        <button id="ex">SEND</button>
-    </div>
+import http.server
+import socketserver
+import os
 
-    <script>
-        const chat = document.getElementById('chat');
-        const l = document.getElementById('l');
-        const API = "https://huyeta.onrender.com/api";
+# Порт берется из настроек Render или 8888 локально
+PORT = int(os.environ.get("PORT", 8888))
+DB_FILE = "messages.txt"
 
-        let cache = "";
+# Создаем файл базы, если его нет
+if not os.path.exists(DB_FILE):
+    with open(DB_FILE, "w", encoding="utf-8") as f:
+        f.write("--- [胡耶塔] PROTOCOL INITIALIZED ---\n")
 
-        // XOR Шифрование
-        function crypt(text, key) {
-            if (!key) return text;
-            let result = "";
-            for (let i = 0; i < text.length; i++) {
-                result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-            }
-            return result;
-        }
+class HuyetaHandler(http.server.BaseHTTPRequestHandler):
+    def log_message(self, format, *args): return
 
-        async function sync() {
-            try {
-                const r = await fetch(API);
-                const t = await r.text();
-                const key = document.getElementById('key').value;
-                
-                let lines = t.split('\n');
-                let processed = "";
+def end_headers(self):
+        # Разрешаем доступ любому источнику (даже локальному файлу)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        super().end_headers()
 
-                lines.forEach(line => {
-                    if (!line.includes(": ")) { processed += line + "\n"; return; }
-                    
-                    let parts = line.split(": ");
-                    let user = parts[0];
-                    let payload = parts.slice(1).join(": ");
+    def do_OPTIONS(self):
+        # Браузер сначала шлет запрос OPTIONS, чтобы проверить разрешения
+        self.send_response(200)
+        self.end_headers()
 
-                    try {
-                        // Пытаемся декодировать Base64 и XOR
-                        let decrypted = crypt(atob(payload), key);
-                        processed += `${user}: ${decrypted}\n`;
-                    } catch(e) {
-                        // Если это не Base64 или ошибка — выводим как есть (игнорируем расшифровку)
-                        processed += line + "\n";
-                    }
-                });
+    def do_GET(self):
+        if self.path == '/api':
+            self.send_response(200)
+            self.send_header('Content-type', 'text/plain; charset=utf-8')
+            if os.path.exists(DB_FILE):
+                with open(DB_FILE, "r", encoding="utf-8") as f:
+                    data = f.read().encode('utf-8')
+                self.send_header('Content-Length', len(data))
+                self.end_headers()
+                self.wfile.write(data)
+        else:
+            # Отдача фронтенда
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            file_path = os.path.join(base_dir, 'index.html')
+            try:
+                with open(file_path, 'rb') as f:
+                    content = f.read()
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/html; charset=utf-8')
+                    self.end_headers()
+                    self.wfile.write(content)
+            except FileNotFoundError:
+                self.send_error(404, "index.html not found")
 
-                if (processed !== cache) {
-                    chat.innerText = processed;
-                    chat.scrollTop = chat.scrollHeight;
-                    cache = processed;
-                }
-                l.innerText = "LINK: STABLE"; l.style.color = "var(--n)";
-            } catch (e) {
-                l.innerText = "LINK: ERROR"; l.style.color = "red";
-            }
-        }
+    def do_POST(self):
+        length = int(self.headers.get('Content-Length', 0))
+        data = self.rfile.read(length).decode('utf-8')
+        if data:
+            with open(DB_FILE, "a", encoding="utf-8") as f:
+                f.write(data + "\n")
+            print(f"[STORED]: {data}")
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
 
-        async function send() {
-            const n = document.getElementById('nk').value || "ANON";
-            const k = document.getElementById('key').value;
-            const m = document.getElementById('ms').value;
-            if (!m) return;
-
-            // Шифруем и пакуем в Base64
-            const secretData = btoa(crypt(m, k));
-            
-            try {
-                await fetch(API, { method: 'POST', body: `${n}: ${secretData}` });
-                document.getElementById('ms').value = '';
-                sync();
-            } catch (e) {}
-        }
-
-        document.getElementById('ex').onclick = send;
-        document.getElementById('ms').onkeypress = (e) => { if(e.key==='Enter') send(); };
-        setInterval(sync, 2000);
-        sync();
-    </script>
-</body>
-</html>
+socketserver.TCPServer.allow_reuse_address = True
+print(f"--- [SERVER ONLINE ON PORT {PORT}] ---")
+with socketserver.TCPServer(("0.0.0.0", PORT), HuyetaHandler) as httpd:
+    httpd.serve_forever()
