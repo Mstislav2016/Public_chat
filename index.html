@@ -50,7 +50,7 @@
 
         let cache = "";
 
-        // XOR Шифрование (двустороннее)
+// XOR Шифрование (двустороннее)
         function crypt(text, key) {
             if (!key) return text;
             let result = "";
@@ -58,6 +58,19 @@
                 result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
             }
             return result;
+        }
+
+        // КРИТИЧЕСКИЙ ФИКС ДЛЯ КИРИЛЛИЦЫ
+        function encodeBase64(str) {
+            return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => {
+                return String.fromCharCode('0x' + p1);
+            }));
+        }
+
+        function decodeBase64(str) {
+            return decodeURIComponent(Array.prototype.map.call(atob(str), (c) => {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
         }
 
         async function sync() {
@@ -78,11 +91,10 @@
                     let payload = parts.slice(1).join(": ");
 
                     try {
-                        // Декодируем из Base64, потом XOR
-                        let decrypted = crypt(atob(payload), secret);
+                        // Сначала XOR, потом декод из "безопасного" Base64
+                        let decrypted = crypt(decodeBase64(payload), secret);
                         processed += `${user}: ${decrypted}\n`;
                     } catch(e) {
-                        // Если это не шифрованные данные, выводим как есть
                         processed += line + "\n";
                     }
                 });
@@ -94,7 +106,7 @@
                 }
                 l.innerText = "LINK: STABLE"; l.style.color = "var(--n)";
             } catch (e) {
-                l.innerText = "LINK: ERROR (OFFLINE)"; l.style.color = "var(--r)";
+                l.innerText = "LINK: ERROR"; l.style.color = "var(--r)";
             }
         }
 
@@ -104,8 +116,8 @@
             const message = msIn.value;
             if (!message) return;
 
-            // Шифруем и пакуем в Base64 для передачи по сети
-            const encryptedData = btoa(crypt(message, secret));
+            // Сначала XOR, потом в "безопасный" Base64
+            const encryptedData = encodeBase64(crypt(message, secret));
             
             try {
                 const response = await fetch(API, { 
@@ -118,7 +130,7 @@
                     sync();
                 }
             } catch (e) {
-                alert("Ошибка отправки! Проверь статус сервера.");
+                console.error(e);
             }
         }
 
@@ -131,4 +143,5 @@
     </script>
 </body>
 </html>
+
 
