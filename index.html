@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>胡耶塔 // DECRYPTING_NODE</title>
+    <title>胡耶塔 // CRYPTO_NODE</title>
     <style>
         :root { --n: #00ff41; --b: #050505; --r: #ff0055; }
         body { background: var(--b); color: var(--n); font-family: 'Consolas', monospace; display: flex; flex-direction: column; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
@@ -76,7 +76,7 @@
                     clearInterval(interval);
                     element.innerText = `${finalUser}: ${finalText}`;
                 }
-                iteration += 1/2; // Скорость расшифровки
+                iteration += 1/4; // Скорость расшифровки
             }, 30);
         }
 
@@ -143,3 +143,4 @@
     </script>
 </body>
 </html>
+
