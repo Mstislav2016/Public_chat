@@ -6,82 +6,73 @@
     <title>CONTROL // NODE</title>
     <style>
         :root { --n: #00ff41; --b: #050505; --r: #ff0055; }
-        * { box-sizing: border-box; }
         
+        /* Базовые стили без блокировок */
         body { 
-            background: var(--b); color: var(--n); font-family: monospace; 
-            margin: 0; padding: 10px; display: flex; flex-direction: column; height: 100vh;
+            background: var(--b); color: var(--n); font-family: 'Consolas', monospace; 
+            margin: 0; padding: 15px; display: flex; flex-direction: column; height: 100vh;
         }
 
-        header { display: flex; justify-content: space-between; padding-bottom: 5px; border-bottom: 1px solid var(--n); font-size: 12px; }
+        header { display: flex; justify-content: space-between; border-bottom: 1px solid var(--n); padding-bottom: 5px; flex-shrink: 0; }
         
-        #chat { flex: 1; overflow-y: auto; margin: 10px 0; padding: 5px; border-left: 1px solid #111; }
+        #chat { flex: 1; overflow-y: auto; margin: 15px 0; padding: 5px; border-left: 1px solid #111; }
 
-        .ui { display: grid; gap: 8px; grid-template-columns: 1fr 1fr 80px; }
+        /* Простая сетка для полей ввода */
+        .ui-form { display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+        .row { display: flex; gap: 10px; }
         
         input { 
-            background: #111; border: 1px solid var(--n); color: var(--n); 
-            padding: 12px; font-size: 16px !important; border-radius: 4px; outline: none;
+            background: #000; border: 1px solid var(--n); color: var(--n); 
+            padding: 12px; font-size: 16px; border-radius: 4px; outline: none;
+            width: 100%; font-family: inherit;
         }
 
-        #key { border-color: var(--r); -webkit-text-security: disc; }
-        #ms { grid-column: 1 / 3; }
-        #ex { grid-column: 3 / 4; grid-row: 1 / 3; background: var(--n); color: #000; border: none; font-weight: bold; border-radius: 4px; }
+        #key { border-color: var(--r); } /* Убрал маскировку для теста, если заработает — вернем */
         
-        #purge { color: var(--r); background: none; border: 1px solid var(--r); font-size: 10px; cursor: pointer; }
-
-        .msg { margin-bottom: 10px; word-break: break-all; border-left: 2px solid var(--n); padding-left: 8px; }
-        
-        @media (min-width: 600px) {
-            .ui { grid-template-columns: 120px 150px 1fr 100px; }
-            #ms { grid-column: 3 / 4; }
-            #ex { grid-column: 4 / 5; grid-row: 1 / 2; }
+        button { 
+            background: var(--n); color: #000; border: none; padding: 12px 20px;
+            font-weight: bold; cursor: pointer; border-radius: 4px; font-family: inherit;
         }
+        
+        #purge { background: none; border: 1px solid var(--r); color: var(--r); padding: 2px 8px; font-size: 10px; }
+
+        .msg { margin-bottom: 10px; border-left: 2px solid var(--n); padding-left: 8px; word-break: break-all; }
     </style>
 </head>
 <body>
 
     <header>
-        <span>// CONTROL_V5.1 // ONLINE</span>
+        <span>// CONTROL_V5.3 //</span>
         <button id="purge" onclick="purge()">[ PURGE ]</button>
     </header>
     
     <div id="chat"></div>
 
-    <div class="ui">
-        <input type="text" id="nk" placeholder="NICK" maxlength="10">
-        <input type="text" id="key" placeholder="KEY">
-        <input type="text" id="ms" placeholder="MSG..." autocomplete="off">
-        <button id="ex" onclick="send()">SEND</button>
+    <div class="ui-form">
+        <div class="row">
+            <input type="text" id="nk" placeholder="NICK" maxlength="10">
+            <input type="text" id="key" placeholder="KEY)">
+        </div>
+        <div class="row">
+            <input type="text" id="ms" placeholder="MESSAGE..." autocomplete="off">
+            <button id="ex" onclick="send()">SEND</button>
+        </div>
     </div>
 
 <script>
-    const API = 'https://control-u6bq.onrender.com/api';
+    const API = 'https://control-u6bq.onrender.com//api';
     const chat = document.getElementById('chat');
     const keyIn = document.getElementById('key');
     const msIn = document.getElementById('ms');
     const nkIn = document.getElementById('nk');
     let cache = new Set();
-    const noise = "0123456789ABCDEF!@#$%^&*";
 
-    // XOR логика
+    // Простой XOR
     function crypt(t, k) {
         if (!k) return t;
         const te = new TextEncoder().encode(t);
         const ke = new TextEncoder().encode(k);
         return String.fromCharCode(...te.map((b, i) => b ^ ke[i % ke.length]));
-    }
-
-    // Анимация 1/3
-    function anim(el, u, t) {
-        let i = 0;
-        const f = () => {
-            let out = t.split("").map((c, idx) => idx < i ? t[idx] : noise[Math.floor(Math.random()*noise.length)]).join("");
-            el.innerHTML = `<strong>${u}:</strong> ${out}`;
-            if (i < t.length) { i += 3; setTimeout(f, 40); }
-            else { el.innerHTML = `<strong>${u}:</strong> ${t}`; }
-        };
-        f();
     }
 
     async function sync() {
@@ -102,10 +93,10 @@
                         let [u, p] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
                         try {
                             let dec = decodeURIComponent(crypt(atob(p), curKey));
-                            chat.appendChild(div);
-                            anim(div, u, dec);
-                        } catch(e) { div.innerText = line; chat.appendChild(div); }
-                    } else { div.innerText = line; chat.appendChild(div); }
+                            div.innerHTML = `<strong>${u}:</strong> ${dec}`;
+                        } catch(e) { div.innerText = line; }
+                    } else { div.innerText = line; }
+                    chat.appendChild(div);
                     cache.add(id);
                     chat.scrollTop = chat.scrollHeight;
                 }
@@ -114,29 +105,29 @@
     }
 
     async function send() {
-        if (!msIn.value) return;
+        const val = msIn.value;
+        if (!val) return;
         try {
-            const enc = btoa(crypt(encodeURIComponent(msIn.value), keyIn.value));
+            const enc = btoa(crypt(encodeURIComponent(val), keyIn.value));
             await fetch(API, {
                 method: 'POST',
                 body: `${nkIn.value || 'ANON'}: ${enc}`
             });
-            msIn.value = '';
+            msIn.value = ''; // Очистка поля
             sync();
-        } catch(e) {}
+        } catch(e) { alert("Error sending!"); }
     }
 
     async function purge() {
         if(confirm("WIPE?")) { await fetch(API, { method: 'DELETE' }); sync(); }
     }
 
-    // Перешифровка при смене ключа
+    // Обработка Enter без блокировки ввода
+    msIn.onkeyup = (e) => { if(e.key === 'Enter') send(); };
     keyIn.oninput = () => { chat.innerHTML = ""; cache.clear(); sync(); };
-    msIn.onkeypress = (e) => e.key === 'Enter' && send();
 
     sync();
     setInterval(sync, 3000);
 </script>
 </body>
 </html>
-
