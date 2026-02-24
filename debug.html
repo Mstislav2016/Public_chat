@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DECRYPTOR // INTERCEPT PANEL</title>
+    <style>
+        :root { --n: #00ff41; --b: #050505; --r: #ff0055; }
+        * { box-sizing: border-box; }
+        
+        body { 
+            background: var(--b); color: var(--n); font-family: 'Consolas', monospace; 
+            margin: 0; padding: 20px; text-shadow: 0 0 5px var(--n);
+        }
+
+        header { border-bottom: 2px solid var(--n); padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .master-key { background: #000; border: 1px solid var(--r); color: var(--r); padding: 10px; width: 250px; outline: none; font-family: inherit; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
+        th { border: 1px solid var(--n); padding: 10px; background: rgba(0, 255, 65, 0.1); text-align: left; text-transform: uppercase; }
+        td { border: 1px solid rgba(0, 255, 65, 0.3); padding: 10px; word-break: break-all; vertical-align: top; }
+        
+        tr:hover { background: rgba(0, 255, 65, 0.05); }
+
+        .cipher-box { color: #888; font-family: 'Courier New', serif; font-size: 11px; }
+        .plain-box { color: #fff; font-weight: bold; }
+        .key-box { color: var(--r); }
+
+        .status-blink { width: 10px; height: 10px; background: var(--n); display: inline-block; border-radius: 50%; animation: blink 1s infinite; margin-right: 10px; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div><div class="status-blink"></div>[ DECRYPT_MODULE_V1.0 ]</div>
+        <input type="text" id="m-key" class="master-key" placeholder="ENTER DECRYPT KEY...">
+    </header>
+
+    <table id="data-table">
+        <thead>
+            <tr>
+                <th style="width: 15%;">SENDER</th>
+                <th style="width: 35%;">ENCRYPTED_DATA (BASE64)</th>
+                <th style="width: 15%;">GLOBAL_KEY</th>
+                <th style="width: 35%;">DECRYPTED_OUTPUT</th>
+            </tr>
+        </thead>
+        <tbody id="logs"></tbody>
+    </table>
+
+<script>
+    const API = 'https://control-u6bq.onrender.com/api';
+    const logs = document.getElementById('logs');
+    const masterKey = document.getElementById('m-key');
+
+    function crypt(t, k) {
+        if (!k) return t;
+        const te = new TextEncoder().encode(t);
+        const ke = new TextEncoder().encode(k);
+        return String.fromCharCode(...te.map((b, i) => b ^ ke[i % ke.length]));
+    }
+
+    async function update() {
+        try {
+            const r = await fetch(API);
+            const data = await r.text();
+            const lines = data.split('\n').filter(l => l.trim());
+            const key = masterKey.value;
+
+            logs.innerHTML = ""; // Полная перерисовка для таблицы
+
+            lines.forEach((line) => {
+                if (line.includes(": ")) {
+                    let [user, payload] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
+                    let dec = "---";
+                    
+                    try {
+                        dec = decodeURIComponent(crypt(atob(payload), key));
+                    } catch(e) { dec = "[DECRYPT_ERROR]"; }
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${user}</strong></td>
+                        <td class="cipher-box">${payload}</td>
+                        <td class="key-box">${key || 'NONE'}</td>
+                        <td class="plain-box">${dec}</td>
+                    `;
+                    logs.appendChild(tr);
+                }
+            });
+        } catch(e) {}
+    }
+
+    masterKey.oninput = update;
+    setInterval(update, 5000);
+    update();
+</script>
+</body>
+</html>
