@@ -2,82 +2,80 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>CONTROL // SYSTEM</title>
     <style>
         :root { --n: #00ff41; --b: #050505; --r: #ff0055; }
         * { box-sizing: border-box; }
         
         html, body { 
-            background: var(--b); color: var(--n); font-family: monospace; 
-            margin: 0; padding: 0; height: 100%; overflow: hidden; 
-        }
-        
-        /* Главный контейнер на весь экран */
-        #terminal-container { 
-            display: flex; flex-direction: column; 
-            height: 100%; width: 100%; 
-            padding: 10px; padding-bottom: calc(env(safe-area-inset-bottom) + 10px);
-        }
-        
-        header { text-align: center; border-bottom: 1px solid var(--n); padding: 10px; margin-bottom: 10px; font-weight: bold; flex-shrink: 0; }
-        
-        /* Чат теперь гибкий и прокручиваемый */
-        #chat { 
-            flex: 1; border: 1px solid var(--n); overflow-y: auto; 
-            padding: 10px; background: rgba(0,20,0,0.2); 
-            margin-bottom: 10px; font-size: 14px; 
-            -webkit-overflow-scrolling: touch;
+            background: var(--b); color: var(--n); font-family: 'Courier New', monospace; 
+            margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden;
         }
 
-        /* Панель управления всегда внизу */
+        /* Заставка с плавным переходом */
+        #loading-screen { 
+            position: fixed; inset: 0; background: var(--b); z-index: 10000; 
+            display: flex; justify-content: center; align-items: center; 
+            cursor: pointer; transition: opacity 0.8s ease, visibility 0.8s;
+            border: 2px solid var(--n); margin: 10px;
+        }
+        #loading-screen.hidden { opacity: 0; visibility: hidden; }
+
+        #terminal-container { 
+            display: flex; flex-direction: column; height: 100%; width: 100%; 
+            padding: 10px; opacity: 0; transition: opacity 1s ease;
+        }
+        #terminal-container.visible { opacity: 1; }
+
+        header { text-align: center; border-bottom: 1px solid var(--n); padding: 10px; font-size: 12px; flex-shrink: 0; letter-spacing: 2px; }
+
+        #chat { 
+            flex: 1; overflow-y: auto; padding: 10px; 
+            margin-bottom: 120px; /* Отступ под фиксированные кнопки */
+            font-size: 14px; border-left: 1px solid rgba(0,255,65,0.2);
+        }
+
+        /* Фиксированная панель для Samsung */
         .controls { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr 80px; 
-            grid-template-rows: auto auto;
-            gap: 8px; flex-shrink: 0;
-            background: var(--b);
-            padding-top: 5px;
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            display: grid; grid-template-columns: 1fr 1fr 80px; gap: 5px; 
+            padding: 10px; background: #000; border-top: 1px solid var(--n);
+            padding-bottom: calc(env(safe-area-inset-bottom) + 10px);
         }
         
         input { 
-            background: #111; border: 1px solid var(--n); color: var(--n); 
-            padding: 14px; font-size: 16px !important; width: 100%; border-radius: 6px;
-            outline: none; appearance: none;
+            background: #0a0a0a; border: 1px solid var(--n); color: var(--n); 
+            padding: 12px; font-size: 16px !important; border-radius: 2px;
+            outline: none; font-family: inherit;
         }
         
         #nk { grid-column: 1 / 2; }
         #key { grid-column: 2 / 3; border-color: var(--r); color: var(--r); -webkit-text-security: disc; }
         #ms { grid-column: 1 / 3; } 
-        #ex { 
-            grid-column: 3 / 4; grid-row: 1 / 3; 
-            background: var(--n); color: #000; border: none; 
-            font-weight: bold; border-radius: 6px; font-size: 14px;
-        }
-        
-        .msg-line { margin-bottom: 8px; border-left: 2px solid var(--n); padding-left: 8px; word-break: break-all; line-height: 1.4; }
-        
-        /* Тап-заставка */
-        #loading-screen { position: fixed; inset: 0; background: #000; z-index: 10000; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        #ex { grid-column: 3 / 4; grid-row: 1 / 3; background: var(--n); color: #000; border: none; font-weight: bold; cursor: pointer; }
+
+        .msg-line { margin-bottom: 10px; word-break: break-all; min-height: 1.2em; }
+        .noise { color: #004411; } /* Цвет шума при расшифровке */
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+        .blink { animation: pulse 1.5s infinite; }
     </style>
 </head>
 <body>
 
-    <div id="loading-screen" onclick="this.style.display='none';">
-        <div style="text-align: center;">
-            <div style="font-size: 24px; margin-bottom: 10px;">[ ⚠ ]</div>
-            <div>TAP TO INITIALIZE MESSENGER CONTROL</div>
-        </div>
+    <div id="loading-screen" onclick="initSystem()">
+        <div class="blink"> [ TAP TO INITIALIZE MESSENGER CONTROL ] </div>
     </div>
 
     <div id="terminal-container">
-        <header>// CONTROL MESSENGER v4.1 //</header>
+        <header>// NODE: CONTROL_V4.2 // STATUS: ACTIVE //</header>
         <div id="chat"></div>
         <div class="controls">
-            <input type="text" id="nk" placeholder="NICK" maxlength="10">
-            <input type="text" id="key" placeholder="KEY">
-            <input type="text" id="ms" placeholder="MESSAGE..." autocomplete="off">
-            <button id="ex">SEND</button>
+            <input type="text" id="nk" placeholder="USER_ID" maxlength="10">
+            <input type="text" id="key" placeholder="CIPHER_KEY">
+            <input type="text" id="ms" placeholder="TYPE_MESSAGE..." autocomplete="off">
+            <button id="ex">EXEC</button>
         </div>
     </div>
 
@@ -85,14 +83,42 @@
         const chat = document.getElementById('chat');
         const msIn = document.getElementById('ms');
         const keyIn = document.getElementById('key');
-        const API = 'https://control-u6bq.onrender.com/api'; 
+        const API = 'https://public-chat-4p8s.onrender.com/api'; 
         let cache = new Set();
+        const noiseChars = "!@#$%^&*()_+-=[]{}|;:,.<>?/0123456789";
+
+        function initSystem() {
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('terminal-container').classList.add('visible');
+            sync();
+        }
 
         function crypt(text, key) {
             if (!key) return text;
             const t = new TextEncoder().encode(text);
             const k = new TextEncoder().encode(key);
             return String.fromCharCode(...t.map((b, i) => b ^ k[i % k.length]));
+        }
+
+        // Анимация расшифровки 1/3 (шаг в 3 символа)
+        function animateDecrypt(el, user, text) {
+            let currentIdx = 0;
+            const update = () => {
+                let display = text.split("").map((char, i) => {
+                    if (i < currentIdx) return char;
+                    return noiseChars[Math.floor(Math.random() * noiseChars.length)];
+                }).join("");
+                
+                el.innerHTML = `<strong>${user}:</strong> <span class="${currentIdx < text.length ? 'noise' : ''}">${display}</span>`;
+                
+                if (currentIdx < text.length) {
+                    currentIdx += 3; // Шаг 1/3
+                    setTimeout(update, 40);
+                } else {
+                    el.innerHTML = `<strong>${user}:</strong> ${text}`;
+                }
+            };
+            update();
         }
 
         async function sync() {
@@ -105,17 +131,19 @@
                     if (!cache.has(id)) {
                         const div = document.createElement('div');
                         div.className = "msg-line";
+                        chat.appendChild(div);
+                        
                         if (line.includes(": ")) {
                             let [u, p] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
                             try {
                                 let raw = atob(p).split("").map(c => c.charCodeAt(0));
                                 let dec = decodeURIComponent(crypt(String.fromCharCode(...raw), keyIn.value));
-                                div.innerText = `${u}: ${dec}`;
+                                animateDecrypt(div, u, dec);
                             } catch(e) { div.innerText = line; }
                         } else { div.innerText = line; }
-                        chat.appendChild(div);
+                        
                         cache.add(id);
-                        chat.scrollTop = chat.scrollHeight;
+                        setTimeout(() => { chat.scrollTop = chat.scrollHeight; }, 100);
                     }
                 });
             } catch(e) {}
@@ -124,28 +152,21 @@
         async function send() {
             const m = msIn.value;
             if (!m) return;
-            try {
-                const enc = btoa(crypt(encodeURIComponent(m), keyIn.value));
-                await fetch(API, { method: 'POST', body: `${document.getElementById('nk').value || 'ANON'}: ${enc}` });
-                msIn.value = '';
-                sync();
-            } catch(e) {}
+            const enc = btoa(crypt(encodeURIComponent(m), keyIn.value));
+            await fetch(API, { method: 'POST', body: `${document.getElementById('nk').value || 'ANON'}: ${enc}` });
+            msIn.value = '';
+            sync();
         }
 
         document.getElementById('ex').onclick = send;
-        msIn.onkeypress = (e) => { if(e.key === 'Enter') { send(); msIn.blur(); } };
+        msIn.onkeypress = (e) => { if(e.key === 'Enter') send(); };
 
-        // Фикс для клавиатуры Samsung - прокрутка при фокусе
-        const inputs = document.querySelectorAll('input');
-        inputs.forEach(input => {
-            input.addEventListener('focus', () => {
-                setTimeout(() => {
-                    input.scrollIntoView({ behavior: "smooth", block: "end" });
-                }, 300);
-            });
+        // Фокус на Samsung
+        msIn.addEventListener('focus', () => {
+            setTimeout(() => { window.scrollTo(0, 0); document.body.scrollTop = 0; }, 200);
         });
 
-        setInterval(sync, 3000);
+        setInterval(sync, 4000);
     </script>
 </body>
 </html>
