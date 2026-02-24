@@ -2,61 +2,75 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>CONTROL // SYSTEM</title>
     <style>
         :root { --n: #00ff41; --b: #050505; --r: #ff0055; }
         * { box-sizing: border-box; }
-        body { background: var(--b); color: var(--n); font-family: monospace; margin: 0; height: 100vh; overflow: hidden; }
+        
+        /* Исправляем проблему с вводом: разрешаем минимальный скролл */
+        html, body { background: var(--b); color: var(--n); font-family: monospace; margin: 0; min-height: 100%; }
         
         #loading-screen { 
-            position: fixed; inset: 0; background: var(--b); z-index: 100; 
+            position: fixed; inset: 0; background: var(--b); z-index: 999; 
             display: flex; justify-content: center; align-items: center; cursor: pointer;
-            border: 1px solid var(--n); margin: 5px; text-align: center;
         }
 
-        #terminal-container { display: none; flex-direction: column; height: 100%; padding: 10px; }
-        header { text-align: center; border-bottom: 1px solid var(--n); padding: 5px; font-size: 10px; opacity: 0.7; }
-        #chat { flex: 1; overflow-y: auto; padding: 10px 0; margin-bottom: 110px; }
+        #terminal-container { display: none; flex-direction: column; padding: 10px; min-height: 100vh; }
+        
+        header { 
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--n); padding: 5px; font-size: 10px; 
+        }
+
+        #del-btn { color: var(--r); border: 1px solid var(--r); background: none; font-size: 9px; cursor: pointer; padding: 2px 5px; }
+
+        #chat { flex: 1; padding: 10px 0; margin-bottom: 120px; }
         
         .controls { 
             position: fixed; bottom: 0; left: 0; width: 100%; padding: 10px;
             background: #000; border-top: 1px solid var(--n);
-            display: grid; grid-template-columns: 1fr 1fr 70px; gap: 5px;
-            padding-bottom: calc(env(safe-area-inset-bottom) + 10px);
+            display: grid; grid-template-columns: 1fr 1fr 70px; gap: 8px;
+            z-index: 10;
         }
         
-        input { background: #000; border: 1px solid var(--n); color: var(--n); padding: 12px; font-size: 16px !important; outline: none; }
+        input { 
+            background: #111 !important; border: 1px solid var(--n); color: var(--n); 
+            padding: 12px; font-size: 16px !important; border-radius: 4px;
+            outline: none; -webkit-user-select: text; user-select: text;
+        }
+
         #key { border-color: var(--r); -webkit-text-security: disc; }
         #ms { grid-column: 1 / 3; }
-        #ex { grid-column: 3 / 4; grid-row: 1 / 3; background: var(--n); color: #000; border: none; font-weight: bold; }
+        #ex { grid-column: 3 / 4; grid-row: 1 / 3; background: var(--n); color: #000; border: none; font-weight: bold; border-radius: 4px; }
 
-        .msg-line { margin-bottom: 8px; word-break: break-all; }
-        .blink { animation: b 1.5s infinite; }
-        @keyframes b { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        .msg-line { margin-bottom: 8px; border-left: 2px solid var(--n); padding-left: 8px; word-break: break-all; }
     </style>
 </head>
 <body>
 
 <div id="loading-screen" onclick="start()">
-    <div class="blink">[ TAP TO INITIALIZE CONTROL ]</div>
+    <div style="border: 1px solid var(--n); padding: 20px;">[ TAP TO CONNECT ]</div>
 </div>
 
 <div id="terminal-container">
-    <header>// CONTROL_PANEL_V4.3 // STATUS: ONLINE //</header>
+    <header>
+        <span>// CONTROL_V4.4 //</span>
+        <button id="del-btn" onclick="clearData()">[ SELF_DESTRUCT ]</button>
+    </header>
     <div id="chat"></div>
     <div class="controls">
         <input type="text" id="nk" placeholder="NICK" maxlength="10">
         <input type="text" id="key" placeholder="KEY">
         <input type="text" id="ms" placeholder="MESSAGE..." autocomplete="off">
-        <button id="ex">SEND</button>
+        <button id="ex" onclick="send()">SEND</button>
     </div>
 </div>
 
 <script>
-    const API = '/api'; // На рендере будет работать через относительный путь
+    const API = '/api';
     const chat = document.getElementById('chat');
-    const cache = new Set();
+    let cache = new Set();
     const noise = "0123456789ABCDEF!@#$%^&*";
 
     function start() {
@@ -64,6 +78,14 @@
         document.getElementById('terminal-container').style.display = 'flex';
         sync();
         setInterval(sync, 3000);
+    }
+
+    async function clearData() {
+        if(confirm("DELETE ALL LOGS?")) {
+            await fetch(API, { method: 'DELETE' });
+            chat.innerHTML = "";
+            cache.clear();
+        }
     }
 
     function crypt(t, k) {
@@ -87,8 +109,14 @@
         try {
             const r = await fetch(API);
             const text = await r.text();
-            text.split('\n').filter(l => l.trim()).forEach((line, idx) => {
-                if (!cache.has(line + idx)) {
+            const lines = text.split('\n').filter(l => l.trim());
+            
+            // Если сервер пуст, а у нас есть сообщения - значит была очистка
+            if (lines.length < cache.size / 2) { chat.innerHTML = ""; cache.clear(); }
+
+            lines.forEach((line, idx) => {
+                const id = line + idx;
+                if (!cache.has(id)) {
                     const div = document.createElement('div');
                     div.className = "msg-line";
                     chat.appendChild(div);
@@ -100,7 +128,7 @@
                             anim(div, u, dec);
                         } catch(e) { div.innerText = line; }
                     } else { div.innerText = line; }
-                    cache.add(line + idx);
+                    cache.add(id);
                     chat.scrollTop = chat.scrollHeight;
                 }
             });
@@ -122,10 +150,14 @@
             });
             document.getElementById('ms').value = '';
             sync();
-        } catch(e) { alert("Send failed!"); }
+        } catch(e) {}
     }
 
-    document.getElementById('ex').onclick = send;
+    // Фикс для клавиатуры: принудительный фокус при клике
+    document.querySelectorAll('input').forEach(inp => {
+        inp.onclick = () => inp.focus();
+    });
+
     document.getElementById('ms').onkeypress = (e) => e.key === 'Enter' && send();
 </script>
 </body>
