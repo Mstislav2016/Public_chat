@@ -2,102 +2,92 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>CONTROL // SYSTEM</title>
     <style>
-        :root { --n: #00ff41; --b: #050505; --r: #ff0055; --g: #00ff41; }
-        * { box-sizing: border-box; } /* Чтобы паддинги не раздували блоки */
+        :root { --n: #00ff41; --b: #050505; --r: #ff0055; }
+        * { box-sizing: border-box; }
         
-        body { background: var(--b); color: var(--n); font-family: 'Consolas', monospace; display: flex; flex-direction: column; height: 100vh; margin: 0; overflow: hidden; }
-
-        /* LOADING SCREEN */
-        #loading-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--b); color: var(--g); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; text-align: center; padding: 20px; }
-        #loading-text { height: 80px; overflow: hidden; width: 100%; max-width: 500px; font-size: 0.9rem; }
-
-        /* MAIN TERMINAL */
-        #terminal-container { display: none; flex-direction: column; width: 100%; height: 100%; max-width: 900px; margin: 0 auto; }
-        header { width: 100%; text-align: center; border-bottom: 1px solid var(--n); padding: 10px; font-size: 0.8rem; background: rgba(0,255,65,0.05); }
-        
-        #chat { flex-grow: 1; margin: 5px; padding: 10px; border: 1px solid var(--n); overflow-y: auto; background: rgba(0,20,0,0.3); font-size: 0.85rem; border-radius: 4px; }
-        
-        /* АДАПТИВНЫЕ КОНТРОЛЛЕРЫ */
-        .controls { width: 100%; display: flex; flex-wrap: wrap; gap: 5px; padding: 10px; background: #000; border-top: 1px solid #333; }
-        
-        input { background: #000; border: 1px solid var(--n); color: var(--n); padding: 12px 8px; outline: none; font-family: inherit; font-size: 16px; /* 16px предотвращает зум на iPhone */ border-radius: 4px; }
-        
-        #nk { width: 70px; flex-shrink: 0; }
-        #key { width: 100px; border-color: var(--r); color: var(--r); flex-shrink: 0; }
-        #ms { flex-grow: 1; min-width: 150px; }
-        
-        button { background: var(--n); color: #000; border: none; padding: 12px 20px; cursor: pointer; font-weight: bold; border-radius: 4px; flex-shrink: 0; }
-
-        .msg-line { margin-bottom: 6px; border-left: 2px solid var(--n); padding-left: 8px; word-break: break-all; }
-        .status { width: 100%; font-size: 0.65rem; display: flex; justify-content: space-between; padding: 5px 10px; opacity: 0.7; }
-
-        /* Фикс для маленьких экранов */
-        @media (max-width: 480px) {
-            #nk { width: 22%; }
-            #key { width: 35%; }
-            #ms { width: 100%; order: 3; } /* Поле сообщения на новую строку */
-            #ex { width: 35%; order: 2; flex-grow: 1; }
-            .controls { justify-content: space-between; }
+        html, body { 
+            background: var(--b); color: var(--n); font-family: monospace; 
+            margin: 0; padding: 0; height: 100%; overflow: hidden; 
         }
+        
+        /* Главный контейнер на весь экран */
+        #terminal-container { 
+            display: flex; flex-direction: column; 
+            height: 100%; width: 100%; 
+            padding: 10px; padding-bottom: calc(env(safe-area-inset-bottom) + 10px);
+        }
+        
+        header { text-align: center; border-bottom: 1px solid var(--n); padding: 10px; margin-bottom: 10px; font-weight: bold; flex-shrink: 0; }
+        
+        /* Чат теперь гибкий и прокручиваемый */
+        #chat { 
+            flex: 1; border: 1px solid var(--n); overflow-y: auto; 
+            padding: 10px; background: rgba(0,20,0,0.2); 
+            margin-bottom: 10px; font-size: 14px; 
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Панель управления всегда внизу */
+        .controls { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr 80px; 
+            grid-template-rows: auto auto;
+            gap: 8px; flex-shrink: 0;
+            background: var(--b);
+            padding-top: 5px;
+        }
+        
+        input { 
+            background: #111; border: 1px solid var(--n); color: var(--n); 
+            padding: 14px; font-size: 16px !important; width: 100%; border-radius: 6px;
+            outline: none; appearance: none;
+        }
+        
+        #nk { grid-column: 1 / 2; }
+        #key { grid-column: 2 / 3; border-color: var(--r); color: var(--r); -webkit-text-security: disc; }
+        #ms { grid-column: 1 / 3; } 
+        #ex { 
+            grid-column: 3 / 4; grid-row: 1 / 3; 
+            background: var(--n); color: #000; border: none; 
+            font-weight: bold; border-radius: 6px; font-size: 14px;
+        }
+        
+        .msg-line { margin-bottom: 8px; border-left: 2px solid var(--n); padding-left: 8px; word-break: break-all; line-height: 1.4; }
+        
+        /* Тап-заставка */
+        #loading-screen { position: fixed; inset: 0; background: #000; z-index: 10000; display: flex; justify-content: center; align-items: center; cursor: pointer; }
     </style>
 </head>
 <body>
-    
-    <div id="loading-screen">
-        <div style="font-size: 2rem; margin-bottom: 10px;">⚡</div>
-        <div id="loading-text"></div>
+
+    <div id="loading-screen" onclick="this.style.display='none';">
+        <div style="text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 10px;">[ ⚠ ]</div>
+            <div>TAP TO INITIALIZE MESSENGER CONTROL</div>
+        </div>
     </div>
 
     <div id="terminal-container">
-        <header><strong>// CONTROL_SYSTEM_V4 //</strong></header>
-        <div class="status">
-            <span id="l">CONNECTING...</span>
-            <span>DATA_XOR_ENABLED</span>
-        </div>
+        <header>// CONTROL MESSENGER v4.1 //</header>
         <div id="chat"></div>
         <div class="controls">
             <input type="text" id="nk" placeholder="NICK" maxlength="10">
-            <input type="password" id="key" placeholder="KEY">
-            <button id="ex">SEND</button>
+            <input type="text" id="key" placeholder="KEY">
             <input type="text" id="ms" placeholder="MESSAGE..." autocomplete="off">
+            <button id="ex">SEND</button>
         </div>
     </div>
 
     <script>
         const chat = document.getElementById('chat');
-        const l = document.getElementById('l');
         const msIn = document.getElementById('ms');
-        const nkIn = document.getElementById('nk');
         const keyIn = document.getElementById('key');
-        const loadingScreen = document.getElementById('loading-screen');
-        const loadingTextDiv = document.getElementById('loading-text');
-        const terminalContainer = document.getElementById('terminal-container');
+        const API = 'https://control-u6bq.onrender.com/api'; 
+        let cache = new Set();
 
-        const RENDER_URL = 'https://public-chat-4p8s.onrender.com/api'; 
-        const API = window.location.protocol === 'file:' ? RENDER_URL : '/api';
-
-        let processedMessages = new Set();
-        const noiseChars = "0123456789ABCDEF!@#$%^&*";
-
-        // Loading Screen Logic
-        const loadingSteps = ["BOOTING...", "LINKING_SERVER...", "CHECKING_INTEGRITY...", "READY."];
-        let step = 0;
-        function playLoading() {
-            if(step < loadingSteps.length) {
-                loadingTextDiv.innerText = loadingSteps[step];
-                step++;
-                setTimeout(playLoading, 600);
-            } else {
-                loadingScreen.style.display = 'none';
-                terminalContainer.style.display = 'flex';
-                sync();
-            }
-        }
-
-        // Crypto
         function crypt(text, key) {
             if (!key) return text;
             const t = new TextEncoder().encode(text);
@@ -105,60 +95,56 @@
             return String.fromCharCode(...t.map((b, i) => b ^ k[i % k.length]));
         }
 
-        function animateDecrypt(el, user, text) {
-            let i = 0;
-            const interval = setInterval(() => {
-                el.innerText = `${user}: ` + text.split("").map((c, idx) => idx < i ? text[idx] : noiseChars[Math.floor(Math.random()*noiseChars.length)]).join("");
-                if (i >= text.length) clearInterval(interval);
-                i += 0.5;
-            }, 30);
-        }
-
         async function sync() {
             try {
                 const r = await fetch(API);
                 const t = await r.text();
                 const lines = t.split('\n').filter(x => x.trim());
-                const key = keyIn.value;
-
-                lines.forEach((line, index) => {
-                    const msgId = btoa(line) + index; 
-                    if (!processedMessages.has(msgId)) {
+                lines.forEach((line, idx) => {
+                    const id = line + idx;
+                    if (!cache.has(id)) {
                         const div = document.createElement('div');
                         div.className = "msg-line";
-                        chat.appendChild(div);
-
                         if (line.includes(": ")) {
-                            let [user, payload] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
+                            let [u, p] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
                             try {
-                                let raw = atob(payload).split("").map(c => c.charCodeAt(0));
-                                let dec = crypt(String.fromCharCode(...raw), key);
-                                animateDecrypt(div, user, decodeURIComponent(dec));
+                                let raw = atob(p).split("").map(c => c.charCodeAt(0));
+                                let dec = decodeURIComponent(crypt(String.fromCharCode(...raw), keyIn.value));
+                                div.innerText = `${u}: ${dec}`;
                             } catch(e) { div.innerText = line; }
                         } else { div.innerText = line; }
-                        processedMessages.add(msgId);
+                        chat.appendChild(div);
+                        cache.add(id);
                         chat.scrollTop = chat.scrollHeight;
                     }
                 });
-                l.innerText = "STATUS: ONLINE"; l.style.color = "var(--g)";
-            } catch(e) { l.innerText = "STATUS: ERR"; }
+            } catch(e) {}
         }
 
         async function send() {
-            const n = nkIn.value || "ANON";
-            const k = keyIn.value;
             const m = msIn.value;
             if (!m) return;
-            const enc = btoa(crypt(encodeURIComponent(m), k));
-            await fetch(API, { method: 'POST', body: `${n}: ${enc}` });
-            msIn.value = '';
-            sync();
+            try {
+                const enc = btoa(crypt(encodeURIComponent(m), keyIn.value));
+                await fetch(API, { method: 'POST', body: `${document.getElementById('nk').value || 'ANON'}: ${enc}` });
+                msIn.value = '';
+                sync();
+            } catch(e) {}
         }
 
         document.getElementById('ex').onclick = send;
-        msIn.onkeypress = (e) => { if(e.key === 'Enter') send(); };
-        
-        playLoading();
+        msIn.onkeypress = (e) => { if(e.key === 'Enter') { send(); msIn.blur(); } };
+
+        // Фикс для клавиатуры Samsung - прокрутка при фокусе
+        const inputs = document.querySelectorAll('input');
+        inputs.forEach(input => {
+            input.addEventListener('focus', () => {
+                setTimeout(() => {
+                    input.scrollIntoView({ behavior: "smooth", block: "end" });
+                }, 300);
+            });
+        });
+
         setInterval(sync, 3000);
     </script>
 </body>
