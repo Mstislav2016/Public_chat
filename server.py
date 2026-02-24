@@ -12,12 +12,11 @@ class ControlHandler(http.server.BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-type', 'text/plain; charset=utf-8')
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
 
-    def do_OPTIONS(self):
-        self._set_headers()
+    def do_OPTIONS(self): self._set_headers()
 
     def do_GET(self):
         if self.path == '/api':
@@ -26,7 +25,6 @@ class ControlHandler(http.server.BaseHTTPRequestHandler):
             with open(DB_FILE, "r", encoding="utf-8") as f:
                 self.wfile.write(f.read().encode('utf-8'))
         else:
-            # Отдача HTML файла, если заходят в корень
             file_path = os.path.join(os.path.dirname(__file__), 'index.html')
             try:
                 with open(file_path, 'rb') as f:
@@ -45,7 +43,12 @@ class ControlHandler(http.server.BaseHTTPRequestHandler):
             self._set_headers()
             self.wfile.write(b"OK")
 
+    def do_DELETE(self): # НОВАЯ ФУНКЦИЯ ОЧИСТКИ
+        if self.path == '/api':
+            open(DB_FILE, 'w').close()
+            self._set_headers()
+            self.wfile.write(b"CLEARED")
+
 socketserver.TCPServer.allow_reuse_address = True
 with socketserver.TCPServer(("0.0.0.0", PORT), ControlHandler) as httpd:
-    print(f"Server started on port {PORT}")
     httpd.serve_forever()
