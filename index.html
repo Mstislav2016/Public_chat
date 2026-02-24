@@ -2,51 +2,67 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>TERMINAL // CONTROL_SECURE</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CONTROL // SYSTEM</title>
     <style>
         :root { --n: #00ff41; --b: #050505; --r: #ff0055; --g: #00ff41; }
-        body { background: var(--b); color: var(--n); font-family: 'Consolas', monospace; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100vh; margin: 0; overflow: hidden; }
+        * { box-sizing: border-box; } /* Чтобы паддинги не раздували блоки */
+        
+        body { background: var(--b); color: var(--n); font-family: 'Consolas', monospace; display: flex; flex-direction: column; height: 100vh; margin: 0; overflow: hidden; }
 
         /* LOADING SCREEN */
-        #loading-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--b); color: var(--g); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; font-size: 1.2em; text-shadow: 0 0 5px var(--g); }
-        #loading-text { height: 100px; overflow: hidden; width: 80%; max-width: 600px; }
-        #loading-text div { white-space: pre; animation: typing 0.1s steps(1) infinite; }
-        @keyframes typing { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
+        #loading-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--b); color: var(--g); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; text-align: center; padding: 20px; }
+        #loading-text { height: 80px; overflow: hidden; width: 100%; max-width: 500px; font-size: 0.9rem; }
 
         /* MAIN TERMINAL */
-        #terminal-container { display: none; flex-direction: column; width: 95%; max-width: 900px; height: 100%; }
-        header { width: 100%; text-align: center; border-bottom: 1px solid var(--n); padding: 10px; background: rgba(0,255,65,0.05); box-shadow: 0 0 15px rgba(0,255,65,0.1); margin-bottom: 10px;}
-        #chat { flex-grow: 1; margin: 0 0 15px 0; padding: 15px; border: 1px solid var(--n); overflow-y: auto; background: rgba(0,20,0,0.3); font-size: 0.9rem; border-radius: 4px; }
-        .controls { width: 100%; display: flex; gap: 8px; padding-bottom: 20px; flex-wrap: wrap; }
-        input { background: rgba(0,0,0,0.8); border: 1px solid var(--n); color: var(--n); padding: 10px; outline: none; font-family: inherit; border-radius: 2px; }
-        #nk { width: 80px; }
-        #key { width: 120px; border-color: var(--r); color: var(--r); }
-        #ms { flex-grow: 1; min-width: 200px; }
-        button { background: var(--n); color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; transition: 0.2s; border-radius: 2px; }
-        button:hover { background: #fff; box-shadow: 0 0 10px #fff; }
-        .msg-line { margin-bottom: 5px; border-left: 2px solid var(--n); padding-left: 8px; animation: fadeIn 0.5s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .status { width: 100%; font-size: 0.7rem; display: flex; justify-content: space-between; margin-bottom: 5px; opacity: 0.7; }
+        #terminal-container { display: none; flex-direction: column; width: 100%; height: 100%; max-width: 900px; margin: 0 auto; }
+        header { width: 100%; text-align: center; border-bottom: 1px solid var(--n); padding: 10px; font-size: 0.8rem; background: rgba(0,255,65,0.05); }
+        
+        #chat { flex-grow: 1; margin: 5px; padding: 10px; border: 1px solid var(--n); overflow-y: auto; background: rgba(0,20,0,0.3); font-size: 0.85rem; border-radius: 4px; }
+        
+        /* АДАПТИВНЫЕ КОНТРОЛЛЕРЫ */
+        .controls { width: 100%; display: flex; flex-wrap: wrap; gap: 5px; padding: 10px; background: #000; border-top: 1px solid #333; }
+        
+        input { background: #000; border: 1px solid var(--n); color: var(--n); padding: 12px 8px; outline: none; font-family: inherit; font-size: 16px; /* 16px предотвращает зум на iPhone */ border-radius: 4px; }
+        
+        #nk { width: 70px; flex-shrink: 0; }
+        #key { width: 100px; border-color: var(--r); color: var(--r); flex-shrink: 0; }
+        #ms { flex-grow: 1; min-width: 150px; }
+        
+        button { background: var(--n); color: #000; border: none; padding: 12px 20px; cursor: pointer; font-weight: bold; border-radius: 4px; flex-shrink: 0; }
+
+        .msg-line { margin-bottom: 6px; border-left: 2px solid var(--n); padding-left: 8px; word-break: break-all; }
+        .status { width: 100%; font-size: 0.65rem; display: flex; justify-content: space-between; padding: 5px 10px; opacity: 0.7; }
+
+        /* Фикс для маленьких экранов */
+        @media (max-width: 480px) {
+            #nk { width: 22%; }
+            #key { width: 35%; }
+            #ms { width: 100%; order: 3; } /* Поле сообщения на новую строку */
+            #ex { width: 35%; order: 2; flex-grow: 1; }
+            .controls { justify-content: space-between; }
+        }
     </style>
 </head>
 <body>
+    
     <div id="loading-screen">
-        <img src="https://imgur.com/gallery/simple-transitions-of-loading-icons-O1kroXN#/t/loading_gif" alt="Loading" style="width: 150px; height: 150px; margin-bottom: 20px;"> 
+        <div style="font-size: 2rem; margin-bottom: 10px;">⚡</div>
         <div id="loading-text"></div>
     </div>
 
     <div id="terminal-container">
-        <header><h1>CONTROL - SAFE MESSENGER //</h1></header>
+        <header><strong>// CONTROL_SYSTEM_V4 //</strong></header>
         <div class="status">
-            <span id="l">STATUS: CONNECTING...</span>
-            <span>PROTOCOL: AES, XOR, UTF8</span>
+            <span id="l">CONNECTING...</span>
+            <span>DATA_XOR_ENABLED</span>
         </div>
         <div id="chat"></div>
         <div class="controls">
             <input type="text" id="nk" placeholder="NICK" maxlength="10">
-            <input type="password" id="key" placeholder="CIPHER_KEY">
-            <input type="text" id="ms" placeholder="ENCRYPTED_STREAM..." autocomplete="off">
-            <button id="ex">EXEC</button>
+            <input type="password" id="key" placeholder="KEY">
+            <button id="ex">SEND</button>
+            <input type="text" id="ms" placeholder="MESSAGE..." autocomplete="off">
         </div>
     </div>
 
@@ -60,81 +76,41 @@
         const loadingTextDiv = document.getElementById('loading-text');
         const terminalContainer = document.getElementById('terminal-container');
 
-        // --- ЗАМЕНИ ЭТУ ССЫЛКУ НА СВОЮ ОТ RENDER ---
-        const RENDER_URL = 'https://control-u6bq.onrender.com/api'; 
+        const RENDER_URL = 'https://public-chat-4p8s.onrender.com/api'; 
         const API = window.location.protocol === 'file:' ? RENDER_URL : '/api';
 
         let processedMessages = new Set();
-        const noiseChars = "0123456789ABCDEF!@#$%^&*()_+{}|<>?";
-        
-        // --- LOADING ANIMATION SCRIPTS ---
-        const loadingMessages = [
-            "INITIALIZING SECURE PROTOCOL v3.2.1...",
-            "ESTABLISHING ENCRYPTED CONNECTION...",
-            "AUTHENTICATING NODE CONTROL...",
-            "ACCESSING DATASTREAM...",
-            "DECRYPTING LOGS...",
-            "SCANNING FOR INTRUSIONS...",
-            "CONNECTION ESTABLISHED. READY FOR INPUT."
-        ];
-        let currentLoadingMessage = 0;
+        const noiseChars = "0123456789ABCDEF!@#$%^&*";
 
-        function typeLoadingText(message, callback) {
-            loadingTextDiv.innerHTML = "";
-            let i = 0;
-            const speed = 50; // Typing speed in ms
-            const timer = setInterval(() => {
-                if (i < message.length) {
-                    loadingTextDiv.innerHTML += message.charAt(i);
-                    i++;
-                } else {
-                    clearInterval(timer);
-                    setTimeout(callback, 1000); // Pause before next message
-                }
-            }, speed);
-        }
-
-        function startLoadingAnimation() {
-            if (currentLoadingMessage < loadingMessages.length) {
-                typeLoadingText(loadingMessages[currentLoadingMessage], () => {
-                    currentLoadingMessage++;
-                    startLoadingAnimation();
-                });
+        // Loading Screen Logic
+        const loadingSteps = ["BOOTING...", "LINKING_SERVER...", "CHECKING_INTEGRITY...", "READY."];
+        let step = 0;
+        function playLoading() {
+            if(step < loadingSteps.length) {
+                loadingTextDiv.innerText = loadingSteps[step];
+                step++;
+                setTimeout(playLoading, 600);
             } else {
-                // Loading finished
                 loadingScreen.style.display = 'none';
                 terminalContainer.style.display = 'flex';
-                sync(); // Initial sync after loading
+                sync();
             }
         }
-        // --- END LOADING ANIMATION SCRIPTS ---
 
-
-        // XOR Шифрование (UTF-8)
+        // Crypto
         function crypt(text, key) {
             if (!key) return text;
-            const tBytes = new TextEncoder().encode(text);
-            const kBytes = new TextEncoder().encode(key);
-            const res = new Uint8Array(tBytes.length);
-            for(let i=0; i<tBytes.length; i++) res[i] = tBytes[i] ^ kBytes[i % kBytes.length];
-            return String.fromCharCode(...res); // Возвращаем строку для Base64
+            const t = new TextEncoder().encode(text);
+            const k = new TextEncoder().encode(key);
+            return String.fromCharCode(...t.map((b, i) => b ^ k[i % k.length]));
         }
 
-        // Анимация расшифровки
         function animateDecrypt(el, user, text) {
-            let iter = 0;
-            const duration = text.length;
+            let i = 0;
             const interval = setInterval(() => {
-                el.innerHTML = `${user}: ` + text.split("").map((char, i) => {
-                    if (i < iter) return text[i];
-                    return noiseChars[Math.floor(Math.random() * noiseChars.length)];
-                }).join("");
-                
-                if (iter >= duration) {
-                    clearInterval(interval);
-                    el.innerHTML = `${user}: ${text}`;
-                }
-                iter += 1/2; // Скорость (1/2 — нормально, 1/5 — медленно)
+                el.innerText = `${user}: ` + text.split("").map((c, idx) => idx < i ? text[idx] : noiseChars[Math.floor(Math.random()*noiseChars.length)]).join("");
+                if (i >= text.length) clearInterval(interval);
+                i += 0.5;
             }, 30);
         }
 
@@ -155,54 +131,35 @@
                         if (line.includes(": ")) {
                             let [user, payload] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
                             try {
-                                // Base64 -> XOR -> URI-декодирование для кириллицы
-                                let rawBytes = atob(payload).split("").map(c => c.charCodeAt(0));
-                                let decryptedBytes = crypt(String.fromCharCode(...rawBytes), key).split("").map(c => c.charCodeAt(0));
-                                let decodedText = decodeURIComponent(String.fromCharCode(...decryptedBytes));
-                                animateDecrypt(div, user, decodedText);
-                            } catch(e) {
-                                div.innerText = line; 
-                            }
-                        } else {
-                            div.innerText = line;
-                        }
-                        
+                                let raw = atob(payload).split("").map(c => c.charCodeAt(0));
+                                let dec = crypt(String.fromCharCode(...raw), key);
+                                animateDecrypt(div, user, decodeURIComponent(dec));
+                            } catch(e) { div.innerText = line; }
+                        } else { div.innerText = line; }
                         processedMessages.add(msgId);
                         chat.scrollTop = chat.scrollHeight;
                     }
                 });
                 l.innerText = "STATUS: ONLINE"; l.style.color = "var(--g)";
-            } catch(e) {
-                l.innerText = "STATUS: OFFLINE"; l.style.color = "var(--r)";
-            }
+            } catch(e) { l.innerText = "STATUS: ERR"; }
         }
 
         async function send() {
-            const nick = nkIn.value || "ANON";
-            const secret = keyIn.value;
-            const message = msIn.value;
-            if (!message) return;
-
-            // URI-кодируем кириллицу -> XOR -> Base64
-            const safeText = encodeURIComponent(message);
-            const encryptedData = btoa(crypt(safeText, secret));
-            
-            try {
-                const response = await fetch(API, { method: 'POST', body: `${nick}: ${encryptedData}` });
-                if (response.ok) {
-                    msIn.value = '';
-                    sync(); // Сразу обновляем чат
-                }
-            } catch(e) { console.error("SEND ERROR:", e); }
+            const n = nkIn.value || "ANON";
+            const k = keyIn.value;
+            const m = msIn.value;
+            if (!m) return;
+            const enc = btoa(crypt(encodeURIComponent(m), k));
+            await fetch(API, { method: 'POST', body: `${n}: ${enc}` });
+            msIn.value = '';
+            sync();
         }
 
-        // Event Listeners
         document.getElementById('ex').onclick = send;
         msIn.onkeypress = (e) => { if(e.key === 'Enter') send(); };
         
-        // Start loading animation on page load
-        startLoadingAnimation();
-        setInterval(sync, 2000); // Start sync after loading
+        playLoading();
+        setInterval(sync, 3000);
     </script>
 </body>
 </html>
