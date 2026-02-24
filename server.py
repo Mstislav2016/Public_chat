@@ -6,7 +6,7 @@ PORT = int(os.environ.get("PORT", 8888))
 DB_FILE = "messages.txt"
 
 class ControlHandler(http.server.BaseHTTPRequestHandler):
-    def log_message(self, format, *args): return
+    def log_message(self, format, *args): return # Отключаем лишние логи в консоль
 
     def _set_headers(self):
         self.send_response(200)
@@ -25,6 +25,7 @@ class ControlHandler(http.server.BaseHTTPRequestHandler):
             with open(DB_FILE, "r", encoding="utf-8") as f:
                 self.wfile.write(f.read().encode('utf-8'))
         else:
+            # Отдача HTML если зайти просто по адресу
             file_path = os.path.join(os.path.dirname(__file__), 'index.html')
             try:
                 with open(file_path, 'rb') as f:
@@ -43,7 +44,7 @@ class ControlHandler(http.server.BaseHTTPRequestHandler):
             self._set_headers()
             self.wfile.write(b"OK")
 
-    def do_DELETE(self): # НОВАЯ ФУНКЦИЯ ОЧИСТКИ
+    def do_DELETE(self):
         if self.path == '/api':
             open(DB_FILE, 'w').close()
             self._set_headers()
@@ -51,4 +52,5 @@ class ControlHandler(http.server.BaseHTTPRequestHandler):
 
 socketserver.TCPServer.allow_reuse_address = True
 with socketserver.TCPServer(("0.0.0.0", PORT), ControlHandler) as httpd:
+    print(f"CONTROL SERVER RUNNING ON PORT {PORT}")
     httpd.serve_forever()
