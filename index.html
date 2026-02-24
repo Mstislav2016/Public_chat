@@ -3,76 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TERMINAL // ACCESS</title>
+    <title>TERMINAL // STABLE</title>
     <style>
-        :root { --n: #00ff41; --b: #050505; --r: #ff0055; }
-        * { box-sizing: border-box; }
+        :root { --n: #00ff41; --b: #050505; }
+        body { background: var(--b); color: var(--n); font-family: monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; }
         
-        body { 
-            background: var(--b); color: var(--n); font-family: 'Consolas', monospace; 
-            margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh;
-        }
-
-        header { 
-            padding: 10px 20px; border-bottom: 1px solid var(--n); 
-            display: flex; justify-content: space-between; font-size: 12px;
-            background: #000; flex-shrink: 0;
-        }
-
-        #chat { 
-            flex-grow: 1; overflow-y: auto; padding: 20px; 
-            background: #050505; word-break: break-all;
-        }
-
-        /* Упрощенная панель управления */
-        .ui-panel { 
-            background: #000; border-top: 2px solid var(--n); 
-            padding: 15px; flex-shrink: 0;
-        }
-
-        .input-group { display: flex; gap: 10px; margin-bottom: 10px; }
+        #chat { flex: 1; overflow-y: auto; padding: 20px; border-bottom: 1px solid var(--n); }
+        
+        .ui { padding: 20px; background: #000; }
+        .row { display: flex; gap: 10px; margin-bottom: 10px; }
         
         input { 
             background: #111; border: 1px solid var(--n); color: var(--n); 
-            padding: 12px; font-size: 16px; border-radius: 4px;
-            outline: none; font-family: inherit; width: 100%;
+            padding: 12px; font-size: 16px; width: 100%; outline: none;
         }
-
-        #key { border-color: var(--r); }
         
         button { 
-            background: var(--n); color: #000; border: none; 
-            padding: 15px; font-weight: bold; width: 100%;
-            text-transform: uppercase; cursor: pointer; transition: 0.2s;
+            background: var(--n); color: #000; border: none; padding: 15px; 
+            width: 100%; font-weight: bold; cursor: pointer; text-transform: uppercase;
         }
-        button:hover { background: #fff; }
 
-        .msg { margin-bottom: 12px; border-left: 2px solid var(--n); padding-left: 10px; }
-        .u-name { font-weight: bold; color: #fff; }
-
-        @media (min-width: 800px) {
-            .input-group { flex-direction: row; }
-        }
+        .msg { margin-bottom: 10px; border-left: 2px solid var(--n); padding-left: 10px; }
+        .u { font-weight: bold; color: #fff; }
     </style>
 </head>
 <body>
 
-    <header>
-        <span>[ SYSTEM_READY_V6.3 ]</span>
-        <span style="color:var(--n)">STABLE_BUILD</span>
-    </header>
-    
     <div id="chat"></div>
 
-    <div class="ui-panel">
-        <div class="input-group">
-            <input type="text" id="nk" placeholder="NICK" maxlength="10">
-            <input type="text" id="key" placeholder="CIPHER_KEY">
+    <div class="ui">
+        <div class="row">
+            <input type="text" id="nk" placeholder="NICKNAME">
+            <input type="text" id="key" placeholder="CIPHER KEY (IF EMPTY = PLAIN TEXT)">
         </div>
-        <div class="input-group">
-            <input type="text" id="ms" placeholder="TYPE_MESSAGE_HERE..." autocomplete="off">
+        <div class="row">
+            <input type="text" id="ms" placeholder="MESSAGE..." autocomplete="off">
         </div>
-        <button id="ex" onclick="send()">EXECUTE_SEND</button>
+        <button onclick="send()">[ SEND_PACKET ]</button>
     </div>
 
 <script>
@@ -83,7 +50,6 @@
     const nkIn = document.getElementById('nk');
     let cache = new Set();
 
-    // Функция XOR
     function crypt(t, k) {
         if (!k) return t;
         const te = new TextEncoder().encode(t);
@@ -107,11 +73,12 @@
                         let [u, full] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
                         let [cipher, pKey] = full.split("::KEY::");
                         try {
-                            // Если есть ключ в пакете, используем его для дешифровки (или curK если введен)
+                            // Логика: если у нас есть ключ в поле ввода, пробуем им. 
+                            // Если нет - пробуем расшифровать тем, что пришло в пакете (для дебага).
                             let dec = pKey ? decodeURIComponent(crypt(atob(cipher), curK || pKey)) : decodeURIComponent(atob(cipher));
-                            div.innerHTML = `<span class="u-name">${u}:</span> ${dec}`;
+                            div.innerHTML = `<span class="u">${u}:</span> ${dec}`;
                         } catch(e) { 
-                            div.innerHTML = `<span class="u-name">${u}:</span> <span style="color:#444">[LOCKED]</span>`;
+                            div.innerHTML = `<span class="u">${u}:</span> <span style="color:#444">[ENCRYPTED]</span>`;
                         }
                     } else { div.innerText = line; }
                     chat.appendChild(div);
@@ -123,32 +90,26 @@
     }
 
     async function send() {
-        const text = msIn.value;
-        if (!text) return;
-
+        const val = msIn.value;
+        if (!val) return;
         const k = keyIn.value;
-        // Кодируем: шифруем если есть ключ, иначе просто b64
-        let payload = btoa(crypt(encodeURIComponent(text), k));
-        if (k) payload += "::KEY::" + k;
 
-        try {
-            await fetch(API, { 
-                method: 'POST', 
-                body: `${nkIn.value || 'ANON'}: ${payload}` 
-            });
-            msIn.value = ''; // Очистка поля
-            sync();
-        } catch(e) {
-            alert("UPLOAD_ERROR");
-        }
+        // Шифруем только если введен ключ
+        let encData = btoa(crypt(encodeURIComponent(val), k));
+        // Приклеиваем ключ, чтобы /debug мог его вытащить
+        let payload = k ? `${encData}::KEY::${k}` : encData;
+
+        await fetch(API, {
+            method: 'POST',
+            body: `${nkIn.value || 'ANON'}: ${payload}`
+        });
+        
+        msIn.value = '';
+        sync();
     }
 
-    // Слушатель Enter без блокировки других клавиш
-    msIn.addEventListener('keyup', (e) => {
-        if (e.key === 'Enter') send();
-    });
-
-    // Рефреш при смене ключа
+    // Обычный слушатель Enter
+    msIn.onkeyup = (e) => { if (e.key === 'Enter') send(); };
     keyIn.oninput = () => { chat.innerHTML = ""; cache.clear(); sync(); };
 
     setInterval(sync, 3000);
