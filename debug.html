@@ -3,51 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PACKET ANALYZER // SYSTEM</title>
+    <title>ANALYZER // SYSTEM_DEBUG</title>
     <style>
-        :root { --n: #00ff41; --b: #050505; --r: #ff0055; --w: #ffffff; }
-        body { background: var(--b); color: var(--n); font-family: 'Courier New', monospace; padding: 20px; margin: 0; }
-        header { border-bottom: 2px solid var(--n); padding: 10px; display: flex; justify-content: space-between; align-items: center; background: #111; }
-        .stats-box { border: 1px solid var(--n); padding: 5px 15px; font-size: 12px; }
+        :root { --n: #00ff41; --b: #050505; --r: #ff0055; --w: #ffffff; --o: #0088ff; }
+        * { box-sizing: border-box; }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed; }
-        th { border: 1px solid var(--n); padding: 12px; text-align: left; background: rgba(0,255,65,0.1); font-size: 14px; }
-        td { border: 1px solid #222; padding: 12px; word-break: break-all; font-size: 13px; vertical-align: top; }
-        
-        .status-ok { color: var(--n); font-weight: bold; }
-        .status-fail { color: var(--r); font-weight: bold; animation: blink 1s infinite; }
-        .raw-data { color: #555; font-size: 11px; }
-        .decoded-text { color: var(--w); font-weight: bold; background: rgba(255,255,255,0.05); padding: 4px; display: inline-block; width: 100%; }
+        body { 
+            background: var(--b); color: var(--n); font-family: 'Consolas', 'Courier New', monospace; 
+            margin: 0; padding: 20px; text-shadow: 0 0 5px rgba(0,255,65,0.5);
+        }
 
-        #clear-btn { background: var(--r); color: #000; border: none; padding: 8px 15px; font-weight: bold; cursor: pointer; }
-        @keyframes blink { 50% { opacity: 0.3; } }
+        /* Стиль шапки управления */
+        header { 
+            border: 1px solid var(--n); padding: 15px; margin-bottom: 20px; 
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(0,255,65,0.05); box-shadow: 0 0 15px rgba(0,255,65,0.1);
+        }
+
+        .stats-group { display: flex; gap: 20px; align-items: center; }
+        .counter-badge { background: var(--n); color: #000; padding: 5px 10px; font-weight: bold; border-radius: 3px; }
+
+        /* Таблица анализа */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
+        th { 
+            border: 1px solid var(--n); padding: 12px; text-align: left; 
+            background: rgba(0,255,65,0.2); font-size: 13px; text-transform: uppercase;
+        }
+        td { border: 1px solid #222; padding: 12px; word-break: break-all; vertical-align: top; font-size: 13px; }
+
+        /* Статусы пакетов */
+        .status-secure { color: var(--r); font-weight: bold; }
+        .status-open { color: var(--o); font-weight: bold; }
+        .raw-data { color: #555; font-size: 11px; font-family: 'Courier New', serif; }
+        .output-text { color: var(--w); font-weight: bold; background: rgba(255,255,255,0.05); padding: 5px; display: block; border-left: 2px solid var(--n); }
+
+        /* Кнопки */
+        #purge-btn { 
+            background: none; border: 1px solid var(--r); color: var(--r); 
+            padding: 10px 20px; cursor: pointer; font-family: inherit; font-weight: bold;
+            transition: 0.3s;
+        }
+        #purge-btn:hover { background: var(--r); color: #000; box-shadow: 0 0 10px var(--r); }
+
+        .blink { animation: blinker 1.5s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
 
     <header>
-        <div>
-            <strong>[ PACKET_ANALYZER_V3.0 ]</strong>
-            <div id="stat" class="stats-box" style="margin-top: 5px;">LOADED_PACKETS: 0</div>
+        <div class="stats-group">
+            <div><strong>[ PACKET_ANALYZER_V3.5 ]</strong></div>
+            <div class="counter-badge">CAPTURED: <span id="count">0</span></div>
+            <div style="font-size: 10px;" class="blink">● LISTENING_NETWORK...</div>
         </div>
-        <button id="clear-btn" onclick="wipe()">PURGE_DATABASE</button>
+        <button id="purge-btn" onclick="wipeServer()">WIPE_STORAGE</button>
     </header>
 
-    <table>
+    <table id="analyzer-table">
         <thead>
             <tr>
-                <th style="width: 100px;">SOURCE</th>
-                <th>ENCRYPTED_PAYLOAD</th>
-                <th style="width: 120px;">EXTRACT_KEY</th>
-                <th>ANALYZED_CONTENT</th>
+                <th style="width: 120px;">SOURCE_ID</th>
+                <th style="width: 25%;">RAW_PAYLOAD (B64)</th>
+                <th style="width: 150px;">PROTOCOL / KEY</th>
+                <th>DECODED_CONTENT</th>
             </tr>
         </thead>
-        <tbody id="logs"></tbody>
+        <tbody id="logs">
+            </tbody>
     </table>
 
 <script>
     const API = '/api';
+    const logsBody = document.getElementById('logs');
+    const countEl = document.getElementById('count');
 
+    // Функция XOR (такая же как в основном чате)
     function crypt(t, k) {
         if (!k) return t;
         const te = new TextEncoder().encode(t);
@@ -55,55 +86,72 @@
         return String.fromCharCode(...te.map((b, i) => b ^ ke[i % ke.length]));
     }
 
-    async function wipe() { if(confirm("WIPE SERVER?")) await fetch(API, {method: 'DELETE'}); }
+    async function wipeServer() {
+        if(confirm("DANGER: ВЫ УВЕРЕНЫ, ЧТО ХОТИТЕ УДАЛИТЬ ВСЕ ДАННЫЕ С СЕРВЕРА?")) {
+            await fetch(API, { method: 'DELETE' });
+            runAnalysis();
+        }
+    }
 
-    async function analyze() {
+    async function runAnalysis() {
         try {
             const r = await fetch(API);
-            const data = await r.text();
-            const lines = data.split('\n').filter(l => l.trim());
-            document.getElementById('stat').innerText = `LOADED_PACKETS: ${lines.length}`;
+            const rawData = await r.text();
+            const lines = rawData.split('\n').filter(l => l.trim());
             
-            const tbody = document.getElementById('logs');
-            tbody.innerHTML = "";
+            countEl.innerText = lines.length;
+            logsBody.innerHTML = "";
 
-            lines.forEach(line => {
+            lines.reverse().forEach(line => { // reverse() чтобы новые были сверху
                 if (line.includes(": ")) {
-                    let [user, full] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
-                    let [cipher, key] = full.split("::KEY::");
+                    let [user, fullPayload] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
                     
-                    let resultHtml = "";
-                    let keyStatus = "";
+                    // Разбор пакета на данные и ключ
+                    let [cipher, key] = fullPayload.split("::KEY::");
+                    
+                    let decodedResult = "";
+                    let protocolLabel = "";
 
                     if (key) {
+                        // Режим SECURE (был использован ключ)
                         try {
-                            let dec = decodeURIComponent(crypt(atob(cipher), key));
-                            keyStatus = `<span class="status-ok">${key}</span>`;
-                            resultHtml = `<span class="decoded-text">${dec}</span>`;
+                            let binary = atob(cipher);
+                            decodedResult = decodeURIComponent(crypt(binary, key));
+                            protocolLabel = `<span class="status-secure">SECURE (${key})</span>`;
                         } catch(e) {
-                            keyStatus = `<span class="status-fail">${key}</span>`;
-                            resultHtml = `<span style="color:var(--r)">[CORRUPT_DATA]</span>`;
+                            decodedResult = "<span style='color:var(--r)'>[DECRYPT_FAILED]</span>";
+                            protocolLabel = `<span class="status-secure">ERR_KEY</span>`;
                         }
                     } else {
-                        keyStatus = `<span class="status-fail">NOT_FOUND</span>`;
-                        resultHtml = `<span style="color:#444">[LOCKED_ENCRYPTED]</span>`;
+                        // Режим OPEN (шифрования не было)
+                        try {
+                            decodedResult = decodeURIComponent(atob(cipher));
+                            protocolLabel = `<span class="status-open">OPEN_PROTOCOL</span>`;
+                        } catch(e) {
+                            decodedResult = cipher; // Если даже не Base64
+                            protocolLabel = `<span>UNKNOWN</span>`;
+                        }
                     }
 
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td><strong>${user}</strong></td>
                         <td class="raw-data">${cipher}</td>
-                        <td>${keyStatus}</td>
-                        <td>${resultHtml}</td>
+                        <td>${protocolLabel}</td>
+                        <td><span class="output-text">${decodedResult}</span></td>
                     `;
-                    tbody.appendChild(tr);
+                    logsBody.appendChild(tr);
                 }
             });
-        } catch(e) {}
+        } catch(e) {
+            console.error("Analysis Error:", e);
+        }
     }
 
-    setInterval(analyze, 3000);
-    analyze();
+    // Живое обновление каждые 3 секунды
+    setInterval(runAnalysis, 3000);
+    // Первый запуск
+    runAnalysis();
 </script>
 </body>
 </html>
