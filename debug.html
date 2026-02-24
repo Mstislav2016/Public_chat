@@ -2,147 +2,65 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>INTERCEPTOR // DEBUG_PANEL</title>
+    <title>INTERCEPTOR_V5.1</title>
     <style>
-        :root { --n: #00ff41; --b: #050505; --r: #ff0055; --w: #ffffff; }
-        * { box-sizing: border-box; }
-        
-        body { 
-            background: var(--b); color: var(--n); font-family: 'Consolas', monospace; 
-            margin: 0; padding: 20px;
-        }
-
-        header { 
-            border: 2px solid var(--n); padding: 20px; margin-bottom: 20px; 
-            display: flex; justify-content: space-between; align-items: center;
-            background: rgba(0,255,65,0.05);
-        }
-
-        .stats { font-size: 18px; font-weight: bold; }
-        
-        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        th { 
-            border: 1px solid var(--n); padding: 12px; text-align: left; 
-            background: rgba(0,255,65,0.2); color: #fff;
-        }
-        td { border: 1px solid #333; padding: 12px; word-break: break-all; vertical-align: top; }
-
-        .key-tag { color: var(--r); font-weight: bold; background: rgba(255,0,85,0.1); padding: 2px 5px; border-radius: 3px; }
-        .open-tag { color: #0088ff; font-weight: bold; }
-        .raw { color: #666; font-size: 11px; }
-        .decoded { color: var(--w); font-size: 15px; font-weight: bold; text-shadow: 0 0 8px rgba(255,255,255,0.3); }
-
-        #purge { 
-            background: var(--r); color: #000; border: none; padding: 10px 20px; 
-            font-weight: bold; cursor: pointer; text-transform: uppercase;
-        }
-        #purge:hover { background: #fff; }
+        :root { --n: #00ff41; --b: #050505; --r: #ff0055; }
+        body { background: var(--b); color: var(--n); font-family: monospace; padding: 20px; margin: 0; }
+        header { border-bottom: 2px solid var(--n); padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { border: 1px solid var(--n); padding: 12px; background: rgba(0,255,65,0.1); text-align: left; }
+        td { border: 1px solid #222; padding: 12px; word-break: break-all; vertical-align: top; }
+        .key-found { color: var(--r); font-weight: bold; border: 1px solid var(--r); padding: 2px 5px; }
+        .open { color: #0088ff; }
+        .text { color: #fff; font-weight: bold; font-size: 1.1em; }
     </style>
 </head>
 <body>
-
     <header>
-        <div class="stats">
-            [ LOG_ANALYZER_V4.0 ] <br>
-            <small style="font-weight: normal; font-size: 12px;">STATUS: SCANNING_DATABASE...</small>
-        </div>
-        <div>
-            <span id="counter" style="margin-right: 20px;">PACKETS: 0</span>
-            <button id="purge" onclick="wipe()">PURGE_ALL</button>
-        </div>
+        <div><strong>[ SYSTEM_INTERCEPT_LOGS ]</strong></div>
+        <button onclick="wipe()" style="background:var(--r); color:#000; border:none; padding:10px 20px; font-weight:bold; cursor:pointer;">PURGE_ALL</button>
     </header>
-
     <table>
         <thead>
             <tr>
-                <th style="width: 120px;">SENDER</th>
-                <th>ENCRYPTED_PAYLOAD</th>
-                <th style="width: 150px;">KEY_FOUND</th>
-                <th>DECRYPTED_TEXT</th>
+                <th style="width:120px;">SENDER</th>
+                <th style="width:150px;">KEY_INFO</th>
+                <th>DECODED_CONTENT</th>
             </tr>
         </thead>
         <tbody id="logs"></tbody>
     </table>
-
 <script>
-    const API = '/api';
-
-    // Функция XOR для дешифровки
+    const API = 'https://control-u6bq.onrender.com//api';
     function crypt(t, k) {
         if (!k) return t;
         const te = new TextEncoder().encode(t);
         const ke = new TextEncoder().encode(k);
         return String.fromCharCode(...te.map((b, i) => b ^ ke[i % ke.length]));
     }
-
-    async function wipe() {
-        if(confirm("WIPE ENTIRE DATABASE?")) {
-            await fetch(API, { method: 'DELETE' });
-            update();
-        }
-    }
-
+    async function wipe() { if(confirm("DELETE EVERYTHING?")) { await fetch(API, {method:'DELETE'}); update(); } }
     async function update() {
         try {
             const r = await fetch(API);
             const data = await r.text();
-            const lines = data.split('\n').filter(l => l.trim());
-            
-            document.getElementById('counter').innerText = `PACKETS: ${lines.length}`;
+            const lines = data.split('\n').filter(l => l.trim()).reverse();
             const tbody = document.getElementById('logs');
             tbody.innerHTML = "";
-
-            // Новые сообщения в начало таблицы
-            lines.reverse().forEach(line => {
-                if (line.includes(": ")) {
-                    let [user, full] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
-                    
-                    // Выцепляем ключ через разделитель ::KEY::
-                    let [cipher, extractedKey] = full.split("::KEY::");
-                    
-                    let result = "";
-                    let keyInfo = "";
-
-                    if (extractedKey) {
-                        // Если ключ найден в пакете
-                        try {
-                            let binary = atob(cipher);
-                            result = decodeURIComponent(crypt(binary, extractedKey));
-                            keyInfo = `<span class="key-tag">${extractedKey}</span>`;
-                        } catch(e) {
-                            result = "[DECODE_ERROR]";
-                            keyInfo = `<span class="key-tag">BAD_DATA</span>`;
-                        }
-                    } else {
-                        // Если ключа нет (открытый текст)
-                        try {
-                            result = decodeURIComponent(atob(cipher));
-                            keyInfo = `<span class="open-tag">NONE (OPEN)</span>`;
-                        } catch(e) {
-                            result = cipher;
-                            keyInfo = `<span>UNKNOWN</span>`;
-                        }
-                    }
-
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td><strong>${user}</strong></td>
-                        <td class="raw">${cipher}</td>
-                        <td>${keyInfo}</td>
-                        <td class="decoded">${result}</td>
-                    `;
-                    tbody.appendChild(tr);
-                }
+            lines.forEach(line => {
+                if(!line.includes(": ")) return;
+                let [u, full] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
+                let [cipher, key] = full.split("::KEY::");
+                let res = key ? decodeURIComponent(crypt(atob(cipher), key)) : decodeURIComponent(atob(cipher));
+                tbody.innerHTML += `
+                <tr>
+                    <td>${u}</td>
+                    <td>${key ? '<span class="key-found">'+key+'</span>' : '<span class="open">OPEN_MSG</span>'}</td>
+                    <td class="text">${res}</td>
+                </tr>`;
             });
-        } catch(e) {
-            console.error("Update failed");
-        }
+        } catch(e) {}
     }
-
-    // Обновление каждые 3 секунды
-    setInterval(update, 3000);
-    update();
+    setInterval(update, 3000); update();
 </script>
 </body>
 </html>
