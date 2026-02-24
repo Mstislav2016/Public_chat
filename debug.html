@@ -2,95 +2,73 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CONTROL : SAFE MESSENGER</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INTERCEPTOR // DEBUG_PANEL</title>
     <style>
-        :root { --n: #00ff41; --b: #050505; --r: #ff0055; }
-        
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        :root { --n: #00ff41; --b: #050505; --r: #ff0055; --w: #ffffff; }
+        * { box-sizing: border-box; }
         
         body { 
-            background: var(--b); color: var(--n); font-family: monospace; 
-            margin: 0; padding: 10px; display: flex; flex-direction: column;
-            min-height: 100vh; /* Используем min-height вместо height */
+            background: var(--b); color: var(--n); font-family: 'Consolas', monospace; 
+            margin: 0; padding: 20px;
         }
 
         header { 
-            padding: 10px; border-bottom: 1px solid var(--n); 
-            display: flex; justify-content: space-between; font-size: 11px;
+            border: 2px solid var(--n); padding: 20px; margin-bottom: 20px; 
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(0,255,65,0.05);
         }
 
-        #chat { 
-            flex-grow: 1; overflow-y: auto; margin: 10px 0; padding: 5px;
-            background: rgba(0,20,0,0.1); border: 1px solid #111;
-            min-height: 200px;
-        }
-
-        /* Упрощенная панель без лишних слоев */
-        .ui-panel { 
-            display: flex; flex-direction: column; gap: 8px;
-            padding-bottom: 20px; /* Запас под системную полоску */
-        }
-
-        .input-row { display: flex; gap: 5px; }
+        .stats { font-size: 18px; font-weight: bold; }
         
-        input { 
-            background: #111; border: 1px solid var(--n); color: var(--n); 
-            padding: 15px; font-size: 16px !important; border-radius: 4px;
-            outline: none; font-family: inherit; width: 100%;
-            /* Защита от блокировки ввода */
-            pointer-events: auto !important;
-            user-select: text !important;
-            -webkit-user-select: text !important;
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th { 
+            border: 1px solid var(--n); padding: 12px; text-align: left; 
+            background: rgba(0,255,65,0.2); color: #fff;
         }
+        td { border: 1px solid #333; padding: 12px; word-break: break-all; vertical-align: top; }
 
-        #key { border-color: var(--r); }
-        
-        #ex { 
-            background: var(--n); color: #000; border: none; 
-            padding: 15px; font-weight: bold; cursor: pointer;
-            width: 100%; text-transform: uppercase;
+        .key-tag { color: var(--r); font-weight: bold; background: rgba(255,0,85,0.1); padding: 2px 5px; border-radius: 3px; }
+        .open-tag { color: #0088ff; font-weight: bold; }
+        .raw { color: #666; font-size: 11px; }
+        .decoded { color: var(--w); font-size: 15px; font-weight: bold; text-shadow: 0 0 8px rgba(255,255,255,0.3); }
+
+        #purge { 
+            background: var(--r); color: #000; border: none; padding: 10px 20px; 
+            font-weight: bold; cursor: pointer; text-transform: uppercase;
         }
-
-        .msg { margin-bottom: 10px; border-left: 2px solid var(--n); padding-left: 8px; word-break: break-all; }
-        .u-name { font-weight: bold; color: #fff; }
-
-        /* Для компов делаем в ряд */
-        @media (min-width: 600px) {
-            .input-row { flex-direction: row; }
-            .ui-panel { flex-direction: row; }
-            #ex { width: 120px; }
-        }
+        #purge:hover { background: #fff; }
     </style>
 </head>
 <body>
 
     <header>
-        <span>[ NODE: TERMINAL_V6.1 ]</span>
-        <span style="color:var(--n)">ONLINE</span>
+        <div class="stats">
+            [ LOG_ANALYZER_V4.0 ] <br>
+            <small style="font-weight: normal; font-size: 12px;">STATUS: SCANNING_DATABASE...</small>
+        </div>
+        <div>
+            <span id="counter" style="margin-right: 20px;">PACKETS: 0</span>
+            <button id="purge" onclick="wipe()">PURGE_ALL</button>
+        </div>
     </header>
-    
-    <div id="chat"></div>
 
-    <div class="ui-panel">
-        <div class="input-row">
-            <input type="text" id="nk" placeholder="NICK" maxlength="10">
-            <input type="text" id="key" placeholder="KEY (OPT)">
-        </div>
-        <div class="input-row">
-            <input type="text" id="ms" placeholder="MESSAGE..." autocomplete="off" inputmode="text">
-            <button id="ex" onclick="send()">SEND</button>
-        </div>
-    </div>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 120px;">SENDER</th>
+                <th>ENCRYPTED_PAYLOAD</th>
+                <th style="width: 150px;">KEY_FOUND</th>
+                <th>DECRYPTED_TEXT</th>
+            </tr>
+        </thead>
+        <tbody id="logs"></tbody>
+    </table>
 
 <script>
     const API = '/api';
-    const chat = document.getElementById('chat');
-    const keyIn = document.getElementById('key');
-    const msIn = document.getElementById('ms');
-    const nkIn = document.getElementById('nk');
-    let cache = new Set();
 
+    // Функция XOR для дешифровки
     function crypt(t, k) {
         if (!k) return t;
         const te = new TextEncoder().encode(t);
@@ -98,57 +76,73 @@
         return String.fromCharCode(...te.map((b, i) => b ^ ke[i % ke.length]));
     }
 
-    async function sync() {
+    async function wipe() {
+        if(confirm("WIPE ENTIRE DATABASE?")) {
+            await fetch(API, { method: 'DELETE' });
+            update();
+        }
+    }
+
+    async function update() {
         try {
             const r = await fetch(API);
             const data = await r.text();
             const lines = data.split('\n').filter(l => l.trim());
-            const curK = keyIn.value;
+            
+            document.getElementById('counter').innerText = `PACKETS: ${lines.length}`;
+            const tbody = document.getElementById('logs');
+            tbody.innerHTML = "";
 
-            lines.forEach((line, idx) => {
-                const id = line + idx + curK;
-                if (!cache.has(id)) {
-                    const div = document.createElement('div');
-                    div.className = "msg";
-                    if (line.includes(": ")) {
-                        let [u, full] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
-                        let [cipher, pKey] = full.split("::KEY::");
+            // Новые сообщения в начало таблицы
+            lines.reverse().forEach(line => {
+                if (line.includes(": ")) {
+                    let [user, full] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
+                    
+                    // Выцепляем ключ через разделитель ::KEY::
+                    let [cipher, extractedKey] = full.split("::KEY::");
+                    
+                    let result = "";
+                    let keyInfo = "";
+
+                    if (extractedKey) {
+                        // Если ключ найден в пакете
                         try {
-                            let dec = pKey ? decodeURIComponent(crypt(atob(cipher), curK)) : decodeURIComponent(atob(cipher));
-                            div.innerHTML = `<span class="u-name">${u}:</span> ${dec}`;
-                        } catch(e) { 
-                            div.innerHTML = `<span class="u-name">${u}:</span> <span style="color:#444">[LOCKED]</span>`;
+                            let binary = atob(cipher);
+                            result = decodeURIComponent(crypt(binary, extractedKey));
+                            keyInfo = `<span class="key-tag">${extractedKey}</span>`;
+                        } catch(e) {
+                            result = "[DECODE_ERROR]";
+                            keyInfo = `<span class="key-tag">BAD_DATA</span>`;
                         }
-                    } else { div.innerText = line; }
-                    chat.appendChild(div);
-                    cache.add(id);
-                    chat.scrollTop = chat.scrollHeight;
+                    } else {
+                        // Если ключа нет (открытый текст)
+                        try {
+                            result = decodeURIComponent(atob(cipher));
+                            keyInfo = `<span class="open-tag">NONE (OPEN)</span>`;
+                        } catch(e) {
+                            result = cipher;
+                            keyInfo = `<span>UNKNOWN</span>`;
+                        }
+                    }
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${user}</strong></td>
+                        <td class="raw">${cipher}</td>
+                        <td>${keyInfo}</td>
+                        <td class="decoded">${result}</td>
+                    `;
+                    tbody.appendChild(tr);
                 }
             });
-        } catch(e) {}
+        } catch(e) {
+            console.error("Update failed");
+        }
     }
 
-    async function send() {
-        if (!msIn.value) return;
-        const k = keyIn.value;
-        let payload = btoa(crypt(encodeURIComponent(msIn.value), k));
-        if (k) payload += "::KEY::" + k;
-
-        await fetch(API, { method: 'POST', body: `${nkIn.value || 'ANON'}: ${payload}` });
-        msIn.value = '';
-        sync();
-    }
-
-    // Обработка Enter
-    msIn.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') send();
-    });
-
-    // Очистка при смене ключа
-    keyIn.oninput = () => { chat.innerHTML = ""; cache.clear(); sync(); };
-
-    setInterval(sync, 3000);
-    sync();
+    // Обновление каждые 3 секунды
+    setInterval(update, 3000);
+    update();
 </script>
 </body>
 </html>
