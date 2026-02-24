@@ -2,83 +2,95 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ANALYZER // SYSTEM_DEBUG</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CONTROL // NODE</title>
     <style>
-        :root { --n: #00ff41; --b: #050505; --r: #ff0055; --w: #ffffff; --o: #0088ff; }
-        * { box-sizing: border-box; }
+        :root { --n: #00ff41; --b: #050505; --r: #ff0055; }
+        
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
         body { 
-            background: var(--b); color: var(--n); font-family: 'Consolas', 'Courier New', monospace; 
-            margin: 0; padding: 20px; text-shadow: 0 0 5px rgba(0,255,65,0.5);
+            background: var(--b); color: var(--n); font-family: monospace; 
+            margin: 0; padding: 10px; display: flex; flex-direction: column;
+            min-height: 100vh; /* Используем min-height вместо height */
         }
 
-        /* Стиль шапки управления */
         header { 
-            border: 1px solid var(--n); padding: 15px; margin-bottom: 20px; 
-            display: flex; justify-content: space-between; align-items: center;
-            background: rgba(0,255,65,0.05); box-shadow: 0 0 15px rgba(0,255,65,0.1);
+            padding: 10px; border-bottom: 1px solid var(--n); 
+            display: flex; justify-content: space-between; font-size: 11px;
         }
 
-        .stats-group { display: flex; gap: 20px; align-items: center; }
-        .counter-badge { background: var(--n); color: #000; padding: 5px 10px; font-weight: bold; border-radius: 3px; }
-
-        /* Таблица анализа */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
-        th { 
-            border: 1px solid var(--n); padding: 12px; text-align: left; 
-            background: rgba(0,255,65,0.2); font-size: 13px; text-transform: uppercase;
+        #chat { 
+            flex-grow: 1; overflow-y: auto; margin: 10px 0; padding: 5px;
+            background: rgba(0,20,0,0.1); border: 1px solid #111;
+            min-height: 200px;
         }
-        td { border: 1px solid #222; padding: 12px; word-break: break-all; vertical-align: top; font-size: 13px; }
 
-        /* Статусы пакетов */
-        .status-secure { color: var(--r); font-weight: bold; }
-        .status-open { color: var(--o); font-weight: bold; }
-        .raw-data { color: #555; font-size: 11px; font-family: 'Courier New', serif; }
-        .output-text { color: var(--w); font-weight: bold; background: rgba(255,255,255,0.05); padding: 5px; display: block; border-left: 2px solid var(--n); }
-
-        /* Кнопки */
-        #purge-btn { 
-            background: none; border: 1px solid var(--r); color: var(--r); 
-            padding: 10px 20px; cursor: pointer; font-family: inherit; font-weight: bold;
-            transition: 0.3s;
+        /* Упрощенная панель без лишних слоев */
+        .ui-panel { 
+            display: flex; flex-direction: column; gap: 8px;
+            padding-bottom: 20px; /* Запас под системную полоску */
         }
-        #purge-btn:hover { background: var(--r); color: #000; box-shadow: 0 0 10px var(--r); }
 
-        .blink { animation: blinker 1.5s linear infinite; }
-        @keyframes blinker { 50% { opacity: 0; } }
+        .input-row { display: flex; gap: 5px; }
+        
+        input { 
+            background: #111; border: 1px solid var(--n); color: var(--n); 
+            padding: 15px; font-size: 16px !important; border-radius: 4px;
+            outline: none; font-family: inherit; width: 100%;
+            /* Защита от блокировки ввода */
+            pointer-events: auto !important;
+            user-select: text !important;
+            -webkit-user-select: text !important;
+        }
+
+        #key { border-color: var(--r); }
+        
+        #ex { 
+            background: var(--n); color: #000; border: none; 
+            padding: 15px; font-weight: bold; cursor: pointer;
+            width: 100%; text-transform: uppercase;
+        }
+
+        .msg { margin-bottom: 10px; border-left: 2px solid var(--n); padding-left: 8px; word-break: break-all; }
+        .u-name { font-weight: bold; color: #fff; }
+
+        /* Для компов делаем в ряд */
+        @media (min-width: 600px) {
+            .input-row { flex-direction: row; }
+            .ui-panel { flex-direction: row; }
+            #ex { width: 120px; }
+        }
     </style>
 </head>
 <body>
 
     <header>
-        <div class="stats-group">
-            <div><strong>[ PACKET_ANALYZER_V3.5 ]</strong></div>
-            <div class="counter-badge">CAPTURED: <span id="count">0</span></div>
-            <div style="font-size: 10px;" class="blink">● LISTENING_NETWORK...</div>
-        </div>
-        <button id="purge-btn" onclick="wipeServer()">WIPE_STORAGE</button>
+        <span>[ NODE: TERMINAL_V6.1 ]</span>
+        <span style="color:var(--n)">ONLINE</span>
     </header>
+    
+    <div id="chat"></div>
 
-    <table id="analyzer-table">
-        <thead>
-            <tr>
-                <th style="width: 120px;">SOURCE_ID</th>
-                <th style="width: 25%;">RAW_PAYLOAD (B64)</th>
-                <th style="width: 150px;">PROTOCOL / KEY</th>
-                <th>DECODED_CONTENT</th>
-            </tr>
-        </thead>
-        <tbody id="logs">
-            </tbody>
-    </table>
+    <div class="ui-panel">
+        <div class="input-row">
+            <input type="text" id="nk" placeholder="NICK" maxlength="10">
+            <input type="text" id="key" placeholder="KEY (OPT)">
+        </div>
+        <div class="input-row">
+            <input type="text" id="ms" placeholder="MESSAGE..." autocomplete="off" inputmode="text">
+            <button id="ex" onclick="send()">SEND</button>
+        </div>
+    </div>
 
 <script>
     const API = '/api';
-    const logsBody = document.getElementById('logs');
-    const countEl = document.getElementById('count');
+    const chat = document.getElementById('chat');
+    const keyIn = document.getElementById('key');
+    const msIn = document.getElementById('ms');
+    const nkIn = document.getElementById('nk');
+    let cache = new Set();
 
-    // Функция XOR (такая же как в основном чате)
     function crypt(t, k) {
         if (!k) return t;
         const te = new TextEncoder().encode(t);
@@ -86,72 +98,57 @@
         return String.fromCharCode(...te.map((b, i) => b ^ ke[i % ke.length]));
     }
 
-    async function wipeServer() {
-        if(confirm("DANGER: ВЫ УВЕРЕНЫ, ЧТО ХОТИТЕ УДАЛИТЬ ВСЕ ДАННЫЕ С СЕРВЕРА?")) {
-            await fetch(API, { method: 'DELETE' });
-            runAnalysis();
-        }
-    }
-
-    async function runAnalysis() {
+    async function sync() {
         try {
             const r = await fetch(API);
-            const rawData = await r.text();
-            const lines = rawData.split('\n').filter(l => l.trim());
-            
-            countEl.innerText = lines.length;
-            logsBody.innerHTML = "";
+            const data = await r.text();
+            const lines = data.split('\n').filter(l => l.trim());
+            const curK = keyIn.value;
 
-            lines.reverse().forEach(line => { // reverse() чтобы новые были сверху
-                if (line.includes(": ")) {
-                    let [user, fullPayload] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
-                    
-                    // Разбор пакета на данные и ключ
-                    let [cipher, key] = fullPayload.split("::KEY::");
-                    
-                    let decodedResult = "";
-                    let protocolLabel = "";
-
-                    if (key) {
-                        // Режим SECURE (был использован ключ)
+            lines.forEach((line, idx) => {
+                const id = line + idx + curK;
+                if (!cache.has(id)) {
+                    const div = document.createElement('div');
+                    div.className = "msg";
+                    if (line.includes(": ")) {
+                        let [u, full] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
+                        let [cipher, pKey] = full.split("::KEY::");
                         try {
-                            let binary = atob(cipher);
-                            decodedResult = decodeURIComponent(crypt(binary, key));
-                            protocolLabel = `<span class="status-secure">SECURE (${key})</span>`;
-                        } catch(e) {
-                            decodedResult = "<span style='color:var(--r)'>[DECRYPT_FAILED]</span>";
-                            protocolLabel = `<span class="status-secure">ERR_KEY</span>`;
+                            let dec = pKey ? decodeURIComponent(crypt(atob(cipher), curK)) : decodeURIComponent(atob(cipher));
+                            div.innerHTML = `<span class="u-name">${u}:</span> ${dec}`;
+                        } catch(e) { 
+                            div.innerHTML = `<span class="u-name">${u}:</span> <span style="color:#444">[LOCKED]</span>`;
                         }
-                    } else {
-                        // Режим OPEN (шифрования не было)
-                        try {
-                            decodedResult = decodeURIComponent(atob(cipher));
-                            protocolLabel = `<span class="status-open">OPEN_PROTOCOL</span>`;
-                        } catch(e) {
-                            decodedResult = cipher; // Если даже не Base64
-                            protocolLabel = `<span>UNKNOWN</span>`;
-                        }
-                    }
-
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td><strong>${user}</strong></td>
-                        <td class="raw-data">${cipher}</td>
-                        <td>${protocolLabel}</td>
-                        <td><span class="output-text">${decodedResult}</span></td>
-                    `;
-                    logsBody.appendChild(tr);
+                    } else { div.innerText = line; }
+                    chat.appendChild(div);
+                    cache.add(id);
+                    chat.scrollTop = chat.scrollHeight;
                 }
             });
-        } catch(e) {
-            console.error("Analysis Error:", e);
-        }
+        } catch(e) {}
     }
 
-    // Живое обновление каждые 3 секунды
-    setInterval(runAnalysis, 3000);
-    // Первый запуск
-    runAnalysis();
+    async function send() {
+        if (!msIn.value) return;
+        const k = keyIn.value;
+        let payload = btoa(crypt(encodeURIComponent(msIn.value), k));
+        if (k) payload += "::KEY::" + k;
+
+        await fetch(API, { method: 'POST', body: `${nkIn.value || 'ANON'}: ${payload}` });
+        msIn.value = '';
+        sync();
+    }
+
+    // Обработка Enter
+    msIn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') send();
+    });
+
+    // Очистка при смене ключа
+    keyIn.oninput = () => { chat.innerHTML = ""; cache.clear(); sync(); };
+
+    setInterval(sync, 3000);
+    sync();
 </script>
 </body>
 </html>
