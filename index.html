@@ -2,76 +2,77 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>CONTROL // NODE</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TERMINAL // ACCESS</title>
     <style>
-        :root { --n: #00ff41; --b: #050505; --r: #ff0055; --g: rgba(0, 255, 65, 0.15); }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        :root { --n: #00ff41; --b: #050505; --r: #ff0055; }
+        * { box-sizing: border-box; }
         
         body { 
             background: var(--b); color: var(--n); font-family: 'Consolas', monospace; 
-            margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+            margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh;
         }
 
         header { 
-            padding: 12px 20px; border-bottom: 1px solid var(--n); display: flex; 
-            justify-content: space-between; align-items: center; background: rgba(0,20,0,0.4);
-            font-size: 11px; flex-shrink: 0;
+            padding: 10px 20px; border-bottom: 1px solid var(--n); 
+            display: flex; justify-content: space-between; font-size: 12px;
+            background: #000; flex-shrink: 0;
         }
 
         #chat { 
-            flex: 1; overflow-y: auto; padding: 15px; 
-            background: radial-gradient(circle at center, #0a0a0a 0%, #050505 100%);
+            flex-grow: 1; overflow-y: auto; padding: 20px; 
+            background: #050505; word-break: break-all;
         }
 
+        /* Упрощенная панель управления */
         .ui-panel { 
-            background: #000; border-top: 1px solid var(--n); padding: 12px;
-            display: grid; gap: 8px; grid-template-columns: 1fr 1fr 80px;
-            padding-bottom: calc(env(safe-area-inset-bottom) + 12px);
-            z-index: 10; flex-shrink: 0;
+            background: #000; border-top: 2px solid var(--n); 
+            padding: 15px; flex-shrink: 0;
         }
 
+        .input-group { display: flex; gap: 10px; margin-bottom: 10px; }
+        
         input { 
-            background: #0a0a0a; border: 1px solid var(--n); color: var(--n); 
-            padding: 14px; font-size: 16px !important; border-radius: 2px;
-            outline: none; font-family: inherit;
+            background: #111; border: 1px solid var(--n); color: var(--n); 
+            padding: 12px; font-size: 16px; border-radius: 4px;
+            outline: none; font-family: inherit; width: 100%;
         }
 
-        #key { border-color: var(--r); color: var(--r); }
-        #ms { grid-column: 1 / 3; }
+        #key { border-color: var(--r); }
         
         button { 
-            grid-column: 3 / 4; grid-row: 1 / 3; background: var(--n); 
-            color: #000; border: none; font-weight: bold; cursor: pointer;
-            text-transform: uppercase; box-shadow: 0 0 10px var(--n);
+            background: var(--n); color: #000; border: none; 
+            padding: 15px; font-weight: bold; width: 100%;
+            text-transform: uppercase; cursor: pointer; transition: 0.2s;
         }
+        button:hover { background: #fff; }
 
-        .msg { margin-bottom: 12px; border-left: 3px solid var(--n); padding-left: 10px; animation: appear 0.2s ease; }
-        .u-name { font-weight: bold; color: #fff; margin-right: 5px; }
-        .mode-tag { font-size: 9px; padding: 2px 4px; margin-left: 5px; border: 1px solid; }
+        .msg { margin-bottom: 12px; border-left: 2px solid var(--n); padding-left: 10px; }
+        .u-name { font-weight: bold; color: #fff; }
 
         @media (min-width: 800px) {
-            .ui-panel { grid-template-columns: 150px 200px 1fr 120px; }
-            #ms { grid-column: 3 / 4; }
-            button { grid-column: 4 / 5; grid-row: 1 / 2; }
+            .input-group { flex-direction: row; }
         }
-        @keyframes appear { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body>
 
     <header>
-        <span>[ NODE: TERMINAL_V6.0 ]</span>
-        <span id="status">● ONLINE</span>
+        <span>[ SYSTEM_READY_V6.3 ]</span>
+        <span style="color:var(--n)">STABLE_BUILD</span>
     </header>
     
     <div id="chat"></div>
 
     <div class="ui-panel">
-        <input type="text" id="nk" placeholder="NICK" maxlength="10">
-        <input type="text" id="key" placeholder="KEY (OPTIONAL)">
-        <input type="text" id="ms" placeholder="MESSAGE...">
-        <button id="ex" onclick="send()">SEND</button>
+        <div class="input-group">
+            <input type="text" id="nk" placeholder="NICK" maxlength="10">
+            <input type="text" id="key" placeholder="CIPHER_KEY">
+        </div>
+        <div class="input-group">
+            <input type="text" id="ms" placeholder="TYPE_MESSAGE_HERE..." autocomplete="off">
+        </div>
+        <button id="ex" onclick="send()">EXECUTE_SEND</button>
     </div>
 
 <script>
@@ -82,6 +83,7 @@
     const nkIn = document.getElementById('nk');
     let cache = new Set();
 
+    // Функция XOR
     function crypt(t, k) {
         if (!k) return t;
         const te = new TextEncoder().encode(t);
@@ -103,17 +105,11 @@
                     div.className = "msg";
                     if (line.includes(": ")) {
                         let [u, full] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
-                        let cipher = full.split("::KEY::")[0];
-                        let hasKeyInPacket = full.includes("::KEY::");
-
+                        let [cipher, pKey] = full.split("::KEY::");
                         try {
-                            // Если в пакете нет ключа, значит это сырой текст
-                            let dec = hasKeyInPacket 
-                                ? decodeURIComponent(crypt(atob(cipher), curK))
-                                : decodeURIComponent(atob(cipher));
-                            
-                            let mode = hasKeyInPacket ? `<span class="mode-tag" style="color:var(--r)">SECURE</span>` : `<span class="mode-tag" style="color:var(--n)">OPEN</span>`;
-                            div.innerHTML = `<span class="u-name">${u}:</span> ${dec} ${mode}`;
+                            // Если есть ключ в пакете, используем его для дешифровки (или curK если введен)
+                            let dec = pKey ? decodeURIComponent(crypt(atob(cipher), curK || pKey)) : decodeURIComponent(atob(cipher));
+                            div.innerHTML = `<span class="u-name">${u}:</span> ${dec}`;
                         } catch(e) { 
                             div.innerHTML = `<span class="u-name">${u}:</span> <span style="color:#444">[LOCKED]</span>`;
                         }
@@ -127,19 +123,34 @@
     }
 
     async function send() {
-        if (!msIn.value) return;
+        const text = msIn.value;
+        if (!text) return;
+
         const k = keyIn.value;
-        // Кодируем всегда в Base64 для передачи, но шифруем только если есть ключ
-        let payload = btoa(crypt(encodeURIComponent(msIn.value), k));
+        // Кодируем: шифруем если есть ключ, иначе просто b64
+        let payload = btoa(crypt(encodeURIComponent(text), k));
         if (k) payload += "::KEY::" + k;
 
-        await fetch(API, { method: 'POST', body: `${nkIn.value || 'ANON'}: ${payload}` });
-        msIn.value = '';
-        sync();
+        try {
+            await fetch(API, { 
+                method: 'POST', 
+                body: `${nkIn.value || 'ANON'}: ${payload}` 
+            });
+            msIn.value = ''; // Очистка поля
+            sync();
+        } catch(e) {
+            alert("UPLOAD_ERROR");
+        }
     }
 
+    // Слушатель Enter без блокировки других клавиш
+    msIn.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') send();
+    });
+
+    // Рефреш при смене ключа
     keyIn.oninput = () => { chat.innerHTML = ""; cache.clear(); sync(); };
-    msIn.onkeypress = (e) => e.key === 'Enter' && send();
+
     setInterval(sync, 3000);
     sync();
 </script>
