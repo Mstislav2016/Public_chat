@@ -2,89 +2,56 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-    <title>CONTROL // MULTI-SYSTEM</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CONTROL // NODE</title>
     <style>
-        :root { --n: #00ff41; --b: #050505; --r: #ff0055; --g: #003300; }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        :root { --n: #00ff41; --b: #050505; --r: #ff0055; }
+        * { box-sizing: border-box; }
         
         body { 
-            background: var(--b); color: var(--n); 
-            font-family: 'Consolas', 'Courier New', monospace; 
-            margin: 0; padding: 10px;
-            display: flex; flex-direction: column;
-            height: 100vh; width: 100vw;
-            overflow: hidden; /* Защита от лишнего скролла всей страницы */
+            background: var(--b); color: var(--n); font-family: monospace; 
+            margin: 0; padding: 10px; display: flex; flex-direction: column; height: 100vh;
         }
 
-        /* Шапка */
-        header { 
-            display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid var(--n); padding-bottom: 5px; margin-bottom: 10px;
-            font-size: 12px; flex-shrink: 0;
-        }
-
-        /* Зона чата */
-        #chat { 
-            flex: 1; border: 1px solid var(--g); 
-            padding: 10px; background: rgba(0, 20, 0, 0.2);
-            overflow-y: auto; font-size: 14px;
-            border-radius: 4px; box-shadow: inset 0 0 10px #000;
-        }
-
-        /* Контейнер управления */
-        .ui-panel { 
-            margin-top: 10px; flex-shrink: 0;
-            display: grid; gap: 8px;
-            grid-template-columns: 100px 120px 1fr 80px; /* Для компов */
-        }
-
-        input { 
-            background: #000; border: 1px solid var(--n); color: var(--n); 
-            padding: 12px; font-size: 16px !important; border-radius: 4px;
-            outline: none; font-family: inherit; width: 100%;
-        }
-
-        #key { border-color: var(--r); color: var(--r); -webkit-text-security: disc; }
+        header { display: flex; justify-content: space-between; padding-bottom: 5px; border-bottom: 1px solid var(--n); font-size: 12px; }
         
-        button { 
-            padding: 12px; border: none; font-weight: bold; 
-            font-family: inherit; cursor: pointer; text-transform: uppercase;
-            border-radius: 4px; transition: 0.2s;
+        #chat { flex: 1; overflow-y: auto; margin: 10px 0; padding: 5px; border-left: 1px solid #111; }
+
+        .ui { display: grid; gap: 8px; grid-template-columns: 1fr 1fr 80px; }
+        
+        input { 
+            background: #111; border: 1px solid var(--n); color: var(--n); 
+            padding: 12px; font-size: 16px !important; border-radius: 4px; outline: none;
         }
 
-        #ex { background: var(--n); color: #000; }
-        #ex:active { transform: scale(0.95); opacity: 0.8; }
+        #key { border-color: var(--r); -webkit-text-security: disc; }
+        #ms { grid-column: 1 / 3; }
+        #ex { grid-column: 3 / 4; grid-row: 1 / 3; background: var(--n); color: #000; border: none; font-weight: bold; border-radius: 4px; }
+        
+        #purge { color: var(--r); background: none; border: 1px solid var(--r); font-size: 10px; cursor: pointer; }
 
-        #del-btn { background: none; border: 1px solid var(--r); color: var(--r); font-size: 9px; }
-
-        /* Адаптивность для телефонов */
-        @media (max-width: 600px) {
-            .ui-panel {
-                grid-template-columns: 1fr 1fr; /* 2 колонки */
-            }
-            #ms { grid-column: 1 / 3; } /* Сообщение на всю ширину */
-            #ex { grid-column: 1 / 3; height: 50px; } /* Большая кнопка отправки */
-            header span { font-size: 9px; }
+        .msg { margin-bottom: 10px; word-break: break-all; border-left: 2px solid var(--n); padding-left: 8px; }
+        
+        @media (min-width: 600px) {
+            .ui { grid-template-columns: 120px 150px 1fr 100px; }
+            #ms { grid-column: 3 / 4; }
+            #ex { grid-column: 4 / 5; grid-row: 1 / 2; }
         }
-
-        .msg-line { margin-bottom: 8px; border-left: 2px solid var(--n); padding-left: 8px; word-break: break-all; }
-        .noise { color: var(--g); }
     </style>
 </head>
 <body>
 
     <header>
-        <span>// NODE: CONTROL_V5.0 // ONLINE</span>
-        <button id="del-btn" onclick="clearData()">[ PURGE ]</button>
+        <span>// CONTROL_V5.1 // ONLINE</span>
+        <button id="purge" onclick="purge()">[ PURGE ]</button>
     </header>
     
     <div id="chat"></div>
 
-    <div class="ui-panel">
+    <div class="ui">
         <input type="text" id="nk" placeholder="NICK" maxlength="10">
         <input type="text" id="key" placeholder="KEY">
-        <input type="text" id="ms" placeholder="MESSAGE..." autocomplete="off">
+        <input type="text" id="ms" placeholder="MSG..." autocomplete="off">
         <button id="ex" onclick="send()">SEND</button>
     </div>
 
@@ -95,9 +62,9 @@
     const msIn = document.getElementById('ms');
     const nkIn = document.getElementById('nk');
     let cache = new Set();
-    const noiseChars = "0123456789ABCDEF!@#$%^&*";
+    const noise = "0123456789ABCDEF!@#$%^&*";
 
-    // Функция XOR шифрования
+    // XOR логика
     function crypt(t, k) {
         if (!k) return t;
         const te = new TextEncoder().encode(t);
@@ -105,13 +72,13 @@
         return String.fromCharCode(...te.map((b, i) => b ^ ke[i % ke.length]));
     }
 
-    // Анимация расшифровки
+    // Анимация 1/3
     function anim(el, u, t) {
         let i = 0;
         const f = () => {
-            let display = t.split("").map((c, idx) => idx < i ? t[idx] : noiseChars[Math.floor(Math.random()*noiseChars.length)]).join("");
-            el.innerHTML = `<strong>${u}:</strong> ${display}`;
-            if (i < t.length) { i += 2; setTimeout(f, 30); }
+            let out = t.split("").map((c, idx) => idx < i ? t[idx] : noise[Math.floor(Math.random()*noise.length)]).join("");
+            el.innerHTML = `<strong>${u}:</strong> ${out}`;
+            if (i < t.length) { i += 3; setTimeout(f, 40); }
             else { el.innerHTML = `<strong>${u}:</strong> ${t}`; }
         };
         f();
@@ -120,39 +87,25 @@
     async function sync() {
         try {
             const r = await fetch(API);
-            const text = await r.text();
-            const lines = text.split('\n').filter(l => l.trim());
-            
-            // Если ключ изменился, мы должны позволить сообщениям отрисоваться заново
-            const currentKey = keyIn.value;
+            const data = await r.text();
+            const lines = data.split('\n').filter(l => l.trim());
+            const curKey = keyIn.value;
+
+            if (lines.length === 0 && cache.size > 0) { chat.innerHTML = ""; cache.clear(); }
 
             lines.forEach((line, idx) => {
-                const id = line + idx + currentKey; // Ключ теперь часть ID для кэша
+                const id = line + idx + curKey;
                 if (!cache.has(id)) {
                     const div = document.createElement('div');
-                    div.className = "msg-line";
-                    
+                    div.className = "msg";
                     if (line.includes(": ")) {
                         let [u, p] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
                         try {
-                            // 1. Декодируем Base64
-                            let binary = atob(p);
-                            // 2. XOR расшифровка
-                            let decrypted = crypt(binary, currentKey);
-                            // 3. URI декодирование (для кириллицы)
-                            let final = decodeURIComponent(decrypted);
-                            
+                            let dec = decodeURIComponent(crypt(atob(p), curKey));
                             chat.appendChild(div);
-                            anim(div, u, final);
-                        } catch(e) { 
-                            // Если ключ не подошел или ошибка - выводим как есть
-                            div.innerText = line; 
-                            chat.appendChild(div);
-                        }
-                    } else { 
-                        div.innerText = line; 
-                        chat.appendChild(div);
-                    }
+                            anim(div, u, dec);
+                        } catch(e) { div.innerText = line; chat.appendChild(div); }
+                    } else { div.innerText = line; chat.appendChild(div); }
                     cache.add(id);
                     chat.scrollTop = chat.scrollHeight;
                 }
@@ -160,35 +113,29 @@
         } catch(e) {}
     }
 
-    // При изменении ключа — очищаем чат и перерисовываем всё с новым ключом
-    keyIn.oninput = () => {
-        chat.innerHTML = "";
-        cache.clear();
-        sync();
-    };
-
     async function send() {
-        const m = msIn.value;
-        if (!m) return;
+        if (!msIn.value) return;
         try {
-            const k = keyIn.value;
-            // Кодируем: URI -> XOR -> Base64
-            const enc = btoa(crypt(encodeURIComponent(m), k));
+            const enc = btoa(crypt(encodeURIComponent(msIn.value), keyIn.value));
             await fetch(API, {
                 method: 'POST',
-                body: `${nkIn.value || 'ANON'}: ${enc}`,
-                headers: { 'Content-Type': 'text/plain' }
+                body: `${nkIn.value || 'ANON'}: ${enc}`
             });
             msIn.value = '';
             sync();
-        } catch(e) { console.error(e); }
+        } catch(e) {}
     }
 
+    async function purge() {
+        if(confirm("WIPE?")) { await fetch(API, { method: 'DELETE' }); sync(); }
+    }
+
+    // Перешифровка при смене ключа
+    keyIn.oninput = () => { chat.innerHTML = ""; cache.clear(); sync(); };
     msIn.onkeypress = (e) => e.key === 'Enter' && send();
-    
+
     sync();
-    setInterval(sync, 4000);
+    setInterval(sync, 3000);
 </script>
 </body>
 </html>
-
