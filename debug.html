@@ -3,57 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DECRYPTOR // CONTROL PANEL</title>
+    <title>PACKET ANALYZER // SYSTEM</title>
     <style>
-        :root { --n: #00ff41; --b: #050505; --r: #ff0055; }
-        * { box-sizing: border-box; }
-        body { 
-            background: var(--b); color: var(--n); font-family: 'Consolas', monospace; 
-            margin: 0; padding: 20px; text-shadow: 0 0 5px var(--n);
-        }
-        header { border-bottom: 2px solid var(--n); padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        :root { --n: #00ff41; --b: #050505; --r: #ff0055; --w: #ffffff; }
+        body { background: var(--b); color: var(--n); font-family: 'Courier New', monospace; padding: 20px; margin: 0; }
+        header { border-bottom: 2px solid var(--n); padding: 10px; display: flex; justify-content: space-between; align-items: center; background: #111; }
+        .stats-box { border: 1px solid var(--n); padding: 5px 15px; font-size: 12px; }
         
-        .stats { font-size: 14px; color: #fff; background: rgba(0,255,65,0.1); padding: 5px 15px; border: 1px solid var(--n); }
-        .master-key { background: #000; border: 1px solid var(--r); color: var(--r); padding: 10px; width: 250px; outline: none; font-family: inherit; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed; }
+        th { border: 1px solid var(--n); padding: 12px; text-align: left; background: rgba(0,255,65,0.1); font-size: 14px; }
+        td { border: 1px solid #222; padding: 12px; word-break: break-all; font-size: 13px; vertical-align: top; }
         
-        #purge-btn { background: var(--r); color: #000; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; text-transform: uppercase; }
-        #purge-btn:hover { background: #ff4488; }
+        .status-ok { color: var(--n); font-weight: bold; }
+        .status-fail { color: var(--r); font-weight: bold; animation: blink 1s infinite; }
+        .raw-data { color: #555; font-size: 11px; }
+        .decoded-text { color: var(--w); font-weight: bold; background: rgba(255,255,255,0.05); padding: 4px; display: inline-block; width: 100%; }
 
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
-        th { border: 1px solid var(--n); padding: 10px; background: rgba(0, 255, 65, 0.1); text-align: left; }
-        td { border: 1px solid rgba(0, 255, 65, 0.3); padding: 10px; word-break: break-all; }
-        
-        .cipher-box { color: #888; font-size: 11px; }
-        .plain-box { color: #fff; font-weight: bold; background: rgba(255,255,255,0.05); }
+        #clear-btn { background: var(--r); color: #000; border: none; padding: 8px 15px; font-weight: bold; cursor: pointer; }
+        @keyframes blink { 50% { opacity: 0.3; } }
     </style>
 </head>
 <body>
 
     <header>
         <div>
-            <div>[ INTERCEPT_MODULE_V1.2 ]</div>
-            <div id="counter" class="stats" style="margin-top:5px;">MESSAGES_CAPTURED: 0</div>
+            <strong>[ PACKET_ANALYZER_V3.0 ]</strong>
+            <div id="stat" class="stats-box" style="margin-top: 5px;">LOADED_PACKETS: 0</div>
         </div>
-        <input type="text" id="m-key" class="master-key" placeholder="MASTER_DECRYPT_KEY">
-        <button id="purge-btn" onclick="clearLogs()">! PURGE_ALL_LOGS !</button>
+        <button id="clear-btn" onclick="wipe()">PURGE_DATABASE</button>
     </header>
 
-    <table id="data-table">
+    <table>
         <thead>
             <tr>
-                <th>SENDER</th>
-                <th>ENCRYPTED (BASE64)</th>
-                <th>DECRYPTED_RESULT</th>
+                <th style="width: 100px;">SOURCE</th>
+                <th>ENCRYPTED_PAYLOAD</th>
+                <th style="width: 120px;">EXTRACT_KEY</th>
+                <th>ANALYZED_CONTENT</th>
             </tr>
         </thead>
         <tbody id="logs"></tbody>
     </table>
 
 <script>
-    const API = 'https://control-u6bq.onrender.com/api';
-    const logs = document.getElementById('logs');
-    const masterKey = document.getElementById('m-key');
-    const counter = document.getElementById('counter');
+    const API = '/api';
 
     function crypt(t, k) {
         if (!k) return t;
@@ -62,46 +55,55 @@
         return String.fromCharCode(...te.map((b, i) => b ^ ke[i % ke.length]));
     }
 
-    async function clearLogs() {
-        if(confirm("DANGER: WIPE ALL MESSAGES FROM SERVER?")) {
-            await fetch(API, { method: 'DELETE' });
-            update();
-        }
-    }
+    async function wipe() { if(confirm("WIPE SERVER?")) await fetch(API, {method: 'DELETE'}); }
 
-    async function update() {
+    async function analyze() {
         try {
             const r = await fetch(API);
             const data = await r.text();
             const lines = data.split('\n').filter(l => l.trim());
-            const key = masterKey.value;
+            document.getElementById('stat').innerText = `LOADED_PACKETS: ${lines.length}`;
+            
+            const tbody = document.getElementById('logs');
+            tbody.innerHTML = "";
 
-            counter.innerText = `MESSAGES_CAPTURED: ${lines.length}`;
-            logs.innerHTML = ""; 
-
-            lines.forEach((line) => {
+            lines.forEach(line => {
                 if (line.includes(": ")) {
-                    let [user, payload] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
-                    let dec = "---";
-                    try {
-                        dec = decodeURIComponent(crypt(atob(payload), key));
-                    } catch(e) { dec = "[INVALID_KEY]"; }
+                    let [user, full] = [line.split(": ")[0], line.split(": ").slice(1).join(": ")];
+                    let [cipher, key] = full.split("::KEY::");
+                    
+                    let resultHtml = "";
+                    let keyStatus = "";
+
+                    if (key) {
+                        try {
+                            let dec = decodeURIComponent(crypt(atob(cipher), key));
+                            keyStatus = `<span class="status-ok">${key}</span>`;
+                            resultHtml = `<span class="decoded-text">${dec}</span>`;
+                        } catch(e) {
+                            keyStatus = `<span class="status-fail">${key}</span>`;
+                            resultHtml = `<span style="color:var(--r)">[CORRUPT_DATA]</span>`;
+                        }
+                    } else {
+                        keyStatus = `<span class="status-fail">NOT_FOUND</span>`;
+                        resultHtml = `<span style="color:#444">[LOCKED_ENCRYPTED]</span>`;
+                    }
 
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td><strong>${user}</strong></td>
-                        <td class="cipher-box">${payload}</td>
-                        <td class="plain-box">${dec}</td>
+                        <td class="raw-data">${cipher}</td>
+                        <td>${keyStatus}</td>
+                        <td>${resultHtml}</td>
                     `;
-                    logs.appendChild(tr);
+                    tbody.appendChild(tr);
                 }
             });
         } catch(e) {}
     }
 
-    masterKey.oninput = update;
-    setInterval(update, 3000);
-    update();
+    setInterval(analyze, 3000);
+    analyze();
 </script>
 </body>
 </html>
